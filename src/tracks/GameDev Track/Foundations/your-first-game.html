@@ -1,0 +1,175 @@
+<!-- GameDev Track / Foundations / Your First Game -->
+
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Understand the minimal structure of an ExcaliburJS game</li>
+    <li>Create an <code>Engine</code> instance and start a game loop</li>
+    <li>Add a simple actor to the scene</li>
+  </ul>
+</section>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Prerequisites</div>
+    <p>
+      This lesson assumes you've completed the TypeScript Getting Started module.
+      You should be comfortable reading TypeScript type annotations before continuing.
+    </p>
+  </div>
+</div>
+
+<h2>The Anatomy of an Excalibur Game</h2>
+
+<p>
+  Every ExcaliburJS game needs three things to run:
+</p>
+
+<ol style="list-style: decimal; padding-left: 1.5rem; color: var(--text-secondary);">
+  <li style="margin-bottom: 0.5rem;">An <strong>Engine</strong> — the game loop, canvas, and configuration</li>
+  <li style="margin-bottom: 0.5rem;">A <strong>Scene</strong> — a container for your game objects (one is created by default)</li>
+  <li style="margin-bottom: 0.5rem;">A call to <strong><code>game.start()</code></strong> — kicks off the loop</li>
+</ol>
+
+<p>Here is the minimal working game:</p>
+
+<pre><code class="language-typescript">
+import * as ex from "excalibur";
+
+// Create the engine — this creates the canvas
+const game = new ex.Engine({
+  width: 800,
+  height: 600,
+  backgroundColor: ex.Color.Black,
+});
+
+// Start the game
+game.start();
+</code></pre>
+
+<p>
+  That's it. Run this and you get a black canvas with a running game loop.
+  Not exciting yet — but the engine is alive.
+</p>
+
+<h2>Adding an Actor</h2>
+
+<p>
+  An <strong>Actor</strong> is any object in your game world — a player, enemy,
+  platform, bullet, or collectible. Actors have a position, size, and color.
+</p>
+
+<pre><code class="language-typescript">
+import * as ex from "excalibur";
+
+const game = new ex.Engine({
+  width: 800,
+  height: 600,
+  backgroundColor: ex.Color.Black,
+});
+
+// Create a simple blue square actor
+const player = new ex.Actor({
+  x: 400,
+  y: 300,
+  width: 40,
+  height: 40,
+  color: ex.Color.Blue,
+});
+
+// Add the actor to the default scene
+game.add(player);
+
+// Start!
+game.start();
+</code></pre>
+
+<p>
+  Now you have a blue square centered on the screen. The game loop is running —
+  Excalibur is calling <code>update()</code> and <code>draw()</code> 60 times per second.
+</p>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">The Game Loop</div>
+    <p>
+      Every game runs a loop: <code>update → draw → update → draw…</code> forever.
+      On each update, you move things. On each draw, Excalibur renders them.
+      Excalibur manages this loop — you just write what should happen.
+    </p>
+  </div>
+</div>
+
+<h2>Understanding the Engine Config</h2>
+
+<pre><code class="language-typescript">
+const game = new ex.Engine({
+  width: 800,          // Canvas width in pixels
+  height: 600,         // Canvas height in pixels
+  backgroundColor: ex.Color.Black,   // Background color
+  displayMode: ex.DisplayMode.FitScreen,  // How to handle window resizing
+});
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">TypeScript at work</div>
+    <p>
+      Notice how the Engine constructor accepts an object with specific properties.
+      That object has a TypeScript type behind it — if you try to pass an unknown
+      property, TypeScript will warn you. This is type safety helping you use the
+      library correctly.
+    </p>
+  </div>
+</div>
+
+<h2>Try It: Your First Game</h2>
+
+<p>
+  The playground below runs a minimal Excalibur game. Try changing the actor's
+  color, position, or size and see the result live.
+</p>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Your First Excalibur Game"
+  height="520"
+></excalibur-playground>
+
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Customize Your Actor</div>
+  <div class="exercise__body">
+    <p>In the playground above, modify the game so that:</p>
+    <ol>
+      <li>The actor is <strong>red</strong> instead of blue</li>
+      <li>The actor is positioned at the <strong>top-left</strong> of the canvas (near x: 50, y: 50)</li>
+      <li>The actor is <strong>60×60 pixels</strong> instead of 40×40</li>
+    </ol>
+    <p><strong>Expected result:</strong> A large red square in the top-left corner of the game canvas.</p>
+  </div>
+</section>
+
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Two Actors</div>
+  <p>
+    Add a second actor to the scene — different color, different position.
+    Both should appear when the game runs. Explore <code>ex.Color</code> to
+    find colors beyond the basics.
+  </p>
+</section>
+
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>Every Excalibur game starts with <code>new ex.Engine()</code> and <code>game.start()</code></li>
+    <li>Actors are game objects with position, size, and color</li>
+    <li>Use <code>game.add(actor)</code> to put an actor in the default scene</li>
+    <li>The game loop runs <code>update → draw</code> at 60fps automatically</li>
+    <li>TypeScript's type system helps you use the Excalibur API correctly</li>
+  </ul>
+</section>

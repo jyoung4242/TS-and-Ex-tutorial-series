@@ -1,0 +1,165 @@
+<!-- TypeScript Track / Variables & Types / Primitive Types -->
+
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Name the three core primitive types in TypeScript</li>
+    <li>Write type annotations for <code>string</code>, <code>number</code>, and <code>boolean</code></li>
+    <li>Understand what happens when you assign the wrong type to a variable</li>
+  </ul>
+</section>
+
+<h2>The Building Blocks of Types</h2>
+
+<p>
+  Every value in TypeScript has a type. The most fundamental types are called
+  <strong>primitives</strong> — they represent single, indivisible values.
+  TypeScript has three core primitives:
+</p>
+
+<ul style="list-style: disc; padding-left: 1.5rem; color: var(--text-secondary);">
+  <li style="margin-bottom: 0.5rem;"><strong><code>string</code></strong> — text values like <code>"Hello"</code> or <code>"Player One"</code></li>
+  <li style="margin-bottom: 0.5rem;"><strong><code>number</code></strong> — numeric values like <code>42</code>, <code>3.14</code>, or <code>-5</code></li>
+  <li style="margin-bottom: 0.5rem;"><strong><code>boolean</code></strong> — logical values: either <code>true</code> or <code>false</code></li>
+</ul>
+
+<h2>Annotating Primitive Types</h2>
+
+<p>
+  You annotate a variable's type by placing a colon and the type name after the variable name:
+</p>
+
+<pre><code class="language-typescript">
+// Strings — for text
+const playerName: string = "Aria";
+const levelName: string = "The Dark Forest";
+let statusMessage: string = "Ready";
+
+// Numbers — for any numeric value (no int/float distinction)
+const maxHealth: number = 100;
+const speed: number = 2.5;
+let score: number = 0;
+
+// Booleans — for true/false flags
+const isAlive: boolean = true;
+let hasKey: boolean = false;
+const gameOver: boolean = false;
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">TypeScript has one number type</div>
+    <p>
+      Unlike some languages that separate integers from floats (e.g., <code>int</code>
+      and <code>float</code> in C), TypeScript uses a single <code>number</code> type
+      for all numeric values. <code>42</code> and <code>3.14</code> are both <code>number</code>.
+    </p>
+  </div>
+</div>
+
+<h2>What Happens With the Wrong Type?</h2>
+
+<p>
+  If you try to assign a value that doesn't match the declared type, TypeScript reports an error:
+</p>
+
+<pre><code class="language-typescript">
+let score: number = 0;
+
+score = 100;        // ✅ Fine — 100 is a number
+score = "victory";  // ❌ Error: Type 'string' is not assignable to type 'number'
+score = true;       // ❌ Error: Type 'boolean' is not assignable to type 'number'
+</code></pre>
+
+<p>
+  The error appears in your editor immediately — you don't have to run the code to find out.
+</p>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Think of types as promises</div>
+    <p>
+      When you declare <code>let score: number</code>, you're making a promise:
+      "this variable will always hold a number." TypeScript holds you to that promise
+      everywhere <code>score</code> is used.
+    </p>
+  </div>
+</div>
+
+<h2>Game Example</h2>
+
+<p>Here's how primitives look in a game context:</p>
+
+<pre><code class="language-typescript">
+// Player state — all three primitives in use
+const playerName: string  = "Hero";
+let   health:     number  = 100;
+let   mana:       number  = 50;
+let   isAlive:    boolean = true;
+let   hasShield:  boolean = false;
+
+// When the player takes damage
+function takeDamage(amount: number): void {
+  health = health - amount;
+  if (health <= 0) {
+    health = 0;
+    isAlive = false;
+  }
+}
+
+takeDamage(30);  // health = 70, isAlive = true
+takeDamage(80);  // health = 0, isAlive = false
+</code></pre>
+
+<h2>Try It: See Primitives in Action</h2>
+
+<p>
+  The playground below has a minimal Excalibur game. Open the code tab and find
+  where primitive types are used — look for <code>string</code>, <code>number</code>,
+  and <code>boolean</code> annotations.
+</p>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Primitive Types in a Game"
+  height="480"
+></excalibur-playground>
+
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Declare Your Player</div>
+  <div class="exercise__body">
+    <p>Write TypeScript declarations for a player character with the following properties:</p>
+    <ol>
+      <li>A <code>name</code> that is a string — set it to your own name</li>
+      <li>A <code>health</code> number starting at <code>100</code></li>
+      <li>An <code>attackPower</code> number of <code>15</code></li>
+      <li>An <code>isInvincible</code> boolean set to <code>false</code></li>
+      <li>A <code>currentLevel</code> number starting at <code>1</code></li>
+    </ol>
+    <p><strong>Expected result:</strong> Five variable declarations, each with a type annotation, that TypeScript accepts without errors.</p>
+  </div>
+</section>
+
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Trigger a Type Error</div>
+  <p>
+    After completing the exercise, try assigning the wrong type to one of your variables —
+    for example, set <code>health</code> to a string. Read the error TypeScript gives you.
+    Then fix it. Understanding error messages is a core skill.
+  </p>
+</section>
+
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>The three core primitives are <code>string</code>, <code>number</code>, and <code>boolean</code></li>
+    <li>Type annotations use a colon: <code>let score: number = 0</code></li>
+    <li>TypeScript reports an error if you assign the wrong type</li>
+    <li>TypeScript's <code>number</code> handles both integers and decimals</li>
+    <li>Types are a promise about what kind of value a variable will hold</li>
+  </ul>
+</section>

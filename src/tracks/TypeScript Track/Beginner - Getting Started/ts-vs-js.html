@@ -1,0 +1,174 @@
+<!-- TypeScript Track / Getting Started / TypeScript vs JavaScript -->
+
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Understand the relationship between TypeScript and JavaScript</li>
+    <li>Recognize TypeScript-specific syntax in code examples</li>
+    <li>Know what "compiling" TypeScript means</li>
+  </ul>
+</section>
+
+<h2>Two Languages, One Runtime</h2>
+
+<p>
+  Here's the key insight: <strong>TypeScript is not a replacement for JavaScript</strong>.
+  It's a layer on top of it. When you write TypeScript, a tool called the
+  <strong>TypeScript compiler</strong> (<code>tsc</code>) strips away all the type
+  annotations and produces plain JavaScript.
+</p>
+
+<p>
+  That JavaScript is what actually runs in the browser or in Node.js. The types exist
+  only during development — they're a safety net that disappears at runtime.
+</p>
+
+<pre><code class="language-typescript">
+// What you write (TypeScript)
+const playerName: string = "Hero";
+const score: number = 0;
+
+function levelUp(level: number): number {
+  return level + 1;
+}
+</code></pre>
+
+<pre><code class="language-javascript">
+// What the compiler produces (JavaScript)
+const playerName = "Hero";
+const score = 0;
+
+function levelUp(level) {
+  return level + 1;
+}
+</code></pre>
+
+<p>
+  Notice what disappeared: <code>: string</code>, <code>: number</code>, <code>: number</code>.
+  The types are <strong>erased</strong>. The logic stays identical.
+</p>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">TypeScript is a superset</div>
+    <p>
+      All valid JavaScript is also valid TypeScript. You can rename any
+      <code>.js</code> file to <code>.ts</code> and it will work — TypeScript just
+      won't be checking types yet. You add types gradually.
+    </p>
+  </div>
+</div>
+
+<h2>Spotting TypeScript Syntax</h2>
+
+<p>
+  TypeScript adds syntax that plain JavaScript doesn't have. Learning to recognize
+  these patterns is the first step to reading TypeScript fluently.
+</p>
+
+<h3>Type Annotations</h3>
+
+<p>A colon followed by a type name tells TypeScript what kind of value a variable holds:</p>
+
+<pre><code class="language-typescript">
+let health: number = 100;
+let playerName: string = "Aria";
+let isAlive: boolean = true;
+</code></pre>
+
+<h3>Function Parameter Types</h3>
+
+<p>Parameters and return values can be typed:</p>
+
+<pre><code class="language-typescript">
+function takeDamage(currentHealth: number, damage: number): number {
+  return currentHealth - damage;
+}
+</code></pre>
+
+<h3>Interface Definitions</h3>
+
+<p>Interfaces describe the shape of an object:</p>
+
+<pre><code class="language-typescript">
+interface Player {
+  name: string;
+  health: number;
+  score: number;
+}
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">You'll learn all of these</div>
+    <p>
+      Don't worry about understanding every piece of syntax right now.
+      Each of these concepts gets its own dedicated lesson. This overview
+      just helps you know what you're looking at.
+    </p>
+  </div>
+</div>
+
+<h2>The Development Workflow</h2>
+
+<p>When working with TypeScript, the typical workflow is:</p>
+
+<ol style="list-style: decimal; padding-left: 1.5rem; color: var(--text-secondary);">
+  <li style="margin-bottom: 0.5rem;">Write <code>.ts</code> files with type annotations</li>
+  <li style="margin-bottom: 0.5rem;">Your editor checks types in real-time as you type</li>
+  <li style="margin-bottom: 0.5rem;">The TypeScript compiler (<code>tsc</code>) compiles to <code>.js</code></li>
+  <li style="margin-bottom: 0.5rem;">The JavaScript runs in the browser or Node</li>
+</ol>
+
+<p>
+  In modern setups (like ExcaliburJS projects), step 3 happens automatically via build tools
+  like Vite or webpack. You just write TypeScript and the tools handle the rest.
+</p>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Types exist at compile-time only</div>
+    <p>
+      TypeScript's type information does not exist at runtime. You cannot access type
+      names or interface definitions while your program is running — they're gone after
+      compilation. This is why TypeScript errors appear in your editor, not in the browser console.
+    </p>
+  </div>
+</div>
+
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Spot the TypeScript</div>
+  <div class="exercise__body">
+    <p>Look at the code below. Identify which parts are TypeScript-specific and which are plain JavaScript:</p>
+    <pre><code class="language-typescript">
+const speed: number = 200;
+const name = "Excalibur";
+
+function moveActor(x: number, y: number): void {
+  console.log(`Moving to ${x}, ${y}`);
+}
+
+interface GameConfig {
+  width: number;
+  height: number;
+  backgroundColor: string;
+}
+    </code></pre>
+    <p><strong>What to identify:</strong> Which lines or parts would be removed by the TypeScript compiler?</p>
+  </div>
+</section>
+
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>TypeScript compiles to JavaScript — the types are erased at runtime</li>
+    <li>All JavaScript is valid TypeScript (TypeScript is a superset)</li>
+    <li>Type annotations use the <code>:</code> syntax after variable and parameter names</li>
+    <li>Interfaces describe the shape of objects</li>
+    <li>Build tools like Vite handle TypeScript compilation automatically</li>
+  </ul>
+</section>

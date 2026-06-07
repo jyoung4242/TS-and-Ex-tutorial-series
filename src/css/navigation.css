@@ -1,0 +1,213 @@
+/* navigation.css — sidebar navigation components */
+
+/* ── Track Nav ── */
+
+.track-nav {
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.track-nav__label {
+  font-size: var(--text-xs);
+  font-family: var(--font-display);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: var(--space-2);
+  padding: 0 var(--space-2);
+}
+
+.track-nav__tabs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.track-nav__tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  transition: background var(--duration) var(--ease),
+              color var(--duration) var(--ease);
+  text-align: left;
+  width: 100%;
+}
+
+.track-nav__tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.track-nav__tab--active {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.track-nav__tab--active:hover {
+  background: var(--accent-glow);
+}
+
+.track-nav__icon {
+  font-size: 1rem;
+  width: 1.25rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.track-nav__title {
+  flex: 1;
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* ── Module Nav ── */
+
+.module-nav {
+  padding: var(--space-3) 0;
+}
+
+.module-nav__empty {
+  padding: var(--space-6) var(--space-5);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  text-align: center;
+  font-style: italic;
+}
+
+.module-nav__module {
+  margin-bottom: var(--space-1);
+}
+
+.module-nav__module-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: var(--space-2) var(--space-4);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  font-family: var(--font-display);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: color var(--duration) var(--ease);
+  text-align: left;
+}
+
+.module-nav__module-header:hover {
+  color: var(--text-primary);
+}
+
+.module-nav__level-badge {
+  display: none; /* hidden, level shown in module title for brevity */
+}
+
+.module-nav__module-title {
+  flex: 1;
+}
+
+.module-nav__chevron {
+  font-size: 0.9rem;
+  transition: transform var(--duration) var(--ease);
+  display: inline-block;
+}
+
+.module-nav__module--open .module-nav__chevron {
+  transform: rotate(90deg);
+}
+
+/* Lesson list — collapsible */
+.module-nav__lessons {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 300ms var(--ease);
+}
+
+.module-nav__module--open .module-nav__lessons {
+  max-height: 1000px;
+}
+
+/* Lesson item */
+.module-nav__lesson {
+  position: relative;
+}
+
+.module-nav__lesson-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4) var(--space-2) var(--space-6);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  transition: background var(--duration) var(--ease),
+              color var(--duration) var(--ease);
+  border-radius: 0;
+}
+
+.module-nav__lesson-link:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.module-nav__lesson--active .module-nav__lesson-link {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.module-nav__lesson--active .module-nav__lesson-link:hover {
+  background: var(--accent-glow);
+}
+
+/* Active indicator bar */
+.module-nav__lesson--active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+.module-nav__check {
+  font-size: var(--text-xs);
+  width: 1rem;
+  text-align: center;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-family: var(--font-display);
+}
+
+.module-nav__lesson--active .module-nav__check {
+  color: var(--accent);
+}
+
+/* Completed check */
+.module-nav__lesson-link:has(.module-nav__check:first-child) .module-nav__check {
+  color: var(--success);
+}
+
+.module-nav__lesson-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.module-nav__duration {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-family: var(--font-display);
+}

@@ -1,0 +1,140 @@
+<!-- TypeScript Track / Getting Started / Why TypeScript? -->
+
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Explain what TypeScript is and how it relates to JavaScript</li>
+    <li>Identify the core problems TypeScript solves</li>
+    <li>Understand what "type safety" means and why it matters</li>
+  </ul>
+</section>
+
+<h2>What Is TypeScript?</h2>
+
+<p>
+  TypeScript is JavaScript with a superpower: <strong>types</strong>. It's a language developed by Microsoft that compiles down to
+  plain JavaScript, meaning anything TypeScript can do, it ultimately becomes JavaScript that any browser or Node.js environment can
+  run.
+</p>
+
+<p>
+  But before it becomes JavaScript, TypeScript checks your code for mistakes. It reads your code, understands what types of values
+  you're working with, and tells you when something doesn't add up <em>before</em> you even run the program.
+</p>
+
+<h2>The Problem TypeScript Solves</h2>
+
+<p>Consider this JavaScript function:</p>
+
+<pre><code class="language-javascript">
+// JavaScript
+function addPoints(player, amount) {
+  player.score = player.score + amount;
+  return player;
+}
+</code></pre>
+
+<p>This looks fine. But what happens when someone calls it like this?</p>
+
+<pre><code class="language-javascript">
+// Oops — "10" is a string, not a number
+addPoints(player, "10");
+
+// Result: player.score = 0 + "10" = "010"  😱
+</code></pre>
+
+<p>
+  JavaScript won't warn you. The code runs. You get a bug that's hard to track down. In a game, this could mean a player's score shows
+  as <code>"010"</code> instead of <code>10</code>.
+</p>
+
+<p>Now here's the same function in TypeScript:</p>
+
+<pre><code class="language-typescript">
+// TypeScript
+function addPoints(player: Player, amount: number): Player {
+  player.score = player.score + amount;
+  return player;
+}
+</code></pre>
+
+<p>If you try to call <code>addPoints(player, "10")</code>, TypeScript immediately tells you:</p>
+
+<pre><code class="language-text">
+Error: Argument of type 'string' is not assignable to parameter of type 'number'.
+</code></pre>
+
+<p>Bug caught. Before you even run the code.</p>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">What is "type safety"?</div>
+    <p>
+      Type safety means your tools can verify that the types of values in your program are used correctly. A
+      <strong>type error</strong> is when you use a value in a way that doesn't match its type — like adding a string where a number is
+      expected.
+    </p>
+  </div>
+</div>
+
+<h2>Why TypeScript for Game Development?</h2>
+
+<p>Games are complex. You'll have:</p>
+
+<ul style="list-style: disc; padding-left: 1.5rem; color: var(--text-secondary)">
+  <li style="margin-bottom: 0.5rem">Players, enemies, items, projectiles, levels…</li>
+  <li style="margin-bottom: 0.5rem">Game state that changes every frame</li>
+  <li style="margin-bottom: 0.5rem">Events, inputs, collision detection, scoring…</li>
+</ul>
+
+<p>
+  Without types, it's easy to lose track of what each variable holds. With TypeScript, your editor knows the shape of your data and can
+  autocomplete, catch errors, and guide you as you write.
+</p>
+
+<p>
+  Also, browser based games run on all platforms that support JavaScript. Since TypeScript compiles to JavaScript, you get the same
+  wide compatibility with the added benefits of type safety and better tooling. All platforms inlcude mobile, PC, and apple devices.
+</p>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">ExcaliburJS is written in TypeScript</div>
+    <p>
+      This is one reason we use ExcaliburJS. Since the engine is TypeScript-native, you get full type information for every class,
+      method, and property in the engine. Your editor becomes your documentation.
+    </p>
+  </div>
+</div>
+
+<h2>TypeScript's Other Benefits</h2>
+
+<ul style="list-style: disc; padding-left: 1.5rem; color: var(--text-secondary)">
+  <li style="margin-bottom: 0.5rem"><strong>Autocomplete</strong> — your editor can suggest methods and properties</li>
+  <li style="margin-bottom: 0.5rem"><strong>Documentation</strong> — types describe intent, making code self-documenting</li>
+  <li style="margin-bottom: 0.5rem"><strong>Confidence</strong> — fewer runtime surprises</li>
+</ul>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">TypeScript isn't magic</div>
+    <p>
+      TypeScript can only catch <em>type</em> errors. It won't prevent logic errors ("the enemy should move left, not right") or
+      runtime errors from external systems. It's a powerful tool, not a guarantee.
+    </p>
+  </div>
+</div>
+
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>TypeScript is JavaScript plus static type checking</li>
+    <li>It catches type errors before you run your code</li>
+    <li>Type safety prevents entire categories of common bugs</li>
+    <li>ExcaliburJS is TypeScript-native, giving you great editor support</li>
+    <li>TypeScript compiles to plain JavaScript — it runs everywhere JS runs</li>
+  </ul>
+</section>

@@ -1,0 +1,180 @@
+<!--
+  lesson-template.html
+  =====================
+  Template for all lesson HTML files.
+  Copy this file when creating a new lesson.
+
+  IMPORTANT:
+  - This file is CONTENT ONLY — no <html>, <head>, or <body> tags.
+  - It will be injected into the lesson-view component by lesson-view.js.
+  - The outer shell (header, nav, breadcrumbs) is handled by the app.
+
+  How to use:
+  1. Copy to the correct track/module folder
+  2. Rename to your lesson slug (e.g., my-lesson.html)
+  3. Register the lesson in curriculum-manifest.js
+  4. Fill in all sections below
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     List 2–5 specific, measurable things the
+     learner will be able to do after this lesson.
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Understand [concept A] and when to use it</li>
+    <li>Write [code pattern] using TypeScript</li>
+    <li>Identify [common mistake] and how to avoid it</li>
+  </ul>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     1–3 paragraphs. Set the scene. Motivate
+     the topic. Connect to prior knowledge.
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Start with a hook — a real problem this lesson helps solve.
+  Keep it short and concrete.
+</p>
+
+<p>
+  Connect to what the learner already knows. Bridge the gap.
+</p>
+
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     Break the topic into clear sections with h2/h3.
+     Lead with the concept, then show code.
+     ═══════════════════════════════════════════════ -->
+<h2>Section Title</h2>
+
+<p>Explain the concept in plain language before showing code.</p>
+
+<!-- Basic code example -->
+<pre><code class="language-typescript">
+// Example: Annotated TypeScript code
+const greeting: string = "Hello, world!";
+console.log(greeting);
+</code></pre>
+
+<!-- Note callout -->
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>Use this for supplementary context that's helpful but not critical.</p>
+  </div>
+</div>
+
+
+<h3>Sub-section</h3>
+
+<p>Drill into a specific aspect. Keep sections focused.</p>
+
+<pre><code class="language-typescript">
+// More detailed example
+function greet(name: string): string {
+  return `Hello, ${name}!`;
+}
+</code></pre>
+
+<!-- Tip callout -->
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>A practical suggestion that makes the learner more effective.</p>
+  </div>
+</div>
+
+
+<!-- Warning callout -->
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>A common mistake or gotcha the learner should watch out for.</p>
+  </div>
+</div>
+
+
+<!-- Remember callout -->
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>A key rule or principle worth reinforcing explicitly.</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND (optional)
+     Only include if it reinforces the TS concept.
+     Do NOT introduce Excalibur APIs here — just
+     use Excalibur as a visual context.
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  See how this TypeScript concept appears in a game context.
+  The playground below uses the concept from this lesson.
+</p>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Try It: [Lesson Topic]"
+  height="500"
+></excalibur-playground>
+
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     Guided practice with a specific task.
+     Keep it focused on the single lesson objective.
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Exercise Title</div>
+  <div class="exercise__body">
+    <p>Clear, specific instructions for what to do.</p>
+    <ol>
+      <li>Step one</li>
+      <li>Step two</li>
+      <li>Step three</li>
+    </ol>
+    <p><strong>Expected result:</strong> Describe what success looks like.</p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE (optional)
+     A stretch goal for learners who want more.
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Challenge Title</div>
+  <p>A harder extension of the exercise. No hand-holding.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     3–6 bullet points. Reinforce what was covered.
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>Key takeaway one</li>
+    <li>Key takeaway two</li>
+    <li>Key takeaway three</li>
+  </ul>
+</section>
