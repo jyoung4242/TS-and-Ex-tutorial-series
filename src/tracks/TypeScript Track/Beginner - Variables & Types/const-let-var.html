@@ -1,25 +1,346 @@
-<!-- Stub: const, let, and var — full content coming soon -->
+<!--
+  var-let-const.html
+  =====================
+  Lesson: Variable Declarations in TypeScript
+  Track: TypeScript Fundamentals
+  Module: Core Language Basics
+-->
+
+<!-- ===============================================
+     LEARNING OBJECTIVES
+     =============================================== -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Understand the difference between <code>const</code>, <code>let</code>, and <code>var</code> and when to use each</li>
+    <li>Explain block scope versus function scope and why it matters</li>
+    <li>Write variable declarations using TypeScript type annotations</li>
+    <li>Identify the risks of <code>var</code> and avoid them in modern TypeScript code</li>
   </ul>
 </section>
 
-<h2>const, let, and var</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ===============================================
+     INTRODUCTION
+     =============================================== -->
+<h2>Introduction</h2>
+
+<p>
+  Every useful program stores data. In TypeScript, you store data in variables, and the keyword you choose to declare that variable
+  matters more than it might seem. Pick the wrong one and you can end up with bugs that are surprisingly hard to track down.
+</p>
+
+<p>
+  TypeScript gives you three keywords for declaring variables: <code>const</code>, <code>let</code>, and <code>var</code>. If you are
+  coming from older JavaScript, you may have used <code>var</code> everywhere. Modern TypeScript has better options. By the end of this
+  lesson you will know exactly which keyword to reach for and why.
+</p>
+
+<!-- ===============================================
+     CONST
+     =============================================== -->
+<h2><code>const</code>: Your Default Choice</h2>
+
+<p>
+  <code>const</code> declares a variable whose <strong>binding cannot be reassigned</strong>. Once you assign a value to a
+  <code>const</code> variable, you cannot point that variable at a different value. This makes your intentions clear to anyone reading
+  the code: this value is not going to change.
+</p>
+
+<pre><code class="language-typescript">
+const playerName: string = "Aria";
+const maxHealth: number = 100;
+const isAlive: boolean = true;
+
+// This would cause a TypeScript error:
+// playerName = "Zed"; // Error: Cannot assign to 'playerName' because it is a constant.
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      <code>const</code> prevents reassignment of the variable itself, but it does <strong>not</strong> make objects or arrays
+      immutable. You can still mutate the contents of a <code>const</code> object.
+    </p>
   </div>
 </div>
 
+<pre><code class="language-typescript">
+const player = {
+  name: "Aria",
+  health: 100,
+};
+
+// This is allowed -- we are mutating the object, not reassigning the variable:
+player.health = 80;
+
+// This is NOT allowed -- we are trying to reassign the variable itself:
+// player = { name: "Zed", health: 100 }; // Error
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Use <code>const</code> by default for every variable you declare. Only switch to <code>let</code> when you know the variable will
+      need to be reassigned. This habit reduces bugs and makes code easier to reason about.
+    </p>
+  </div>
+</div>
+
+<!-- ===============================================
+     LET
+     =============================================== -->
+<h2><code>let</code>: When Values Need to Change</h2>
+
+<p>
+  <code>let</code> declares a variable that <strong>can be reassigned</strong>. Use it when the value genuinely needs to change over
+  the lifetime of the variable, such as a score that increases, a counter in a loop, or a status that toggles.
+</p>
+
+<pre><code class="language-typescript">
+let score: number = 0;
+let currentLevel: number = 1;
+
+score = score + 10;   // Allowed
+currentLevel = 2;     // Allowed
+</code></pre>
+
+<h3>Block Scope</h3>
+
+<p>
+  Both <code>const</code> and <code>let</code> are <strong>block-scoped</strong>. A block is any section of code wrapped in curly
+  braces <code>{ }</code>. A variable declared inside a block only exists within that block.
+</p>
+
+<pre><code class="language-typescript">
+function updateScore(points: number): void {
+  let score: number = 0;
+
+  if (points > 0) {
+    let bonus: number = points * 2; // 'bonus' only exists inside this if-block
+    score = score + bonus;
+  }
+
+  // console.log(bonus); // Error: 'bonus' is not defined here
+  console.log(score);    // Works fine
+}
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      Block scope means variables live exactly where you declare them and nowhere else. This is predictable and safe. Always prefer
+      block-scoped variables.
+    </p>
+  </div>
+</div>
+
+<h3><code>let</code> in Loops</h3>
+
+<p><code>let</code> is the right choice for loop counters because the counter value changes on every iteration.</p>
+
+<pre><code class="language-typescript">
+const enemies: string[] = ["Goblin", "Orc", "Dragon"];
+
+for (let i: number = 0; i < enemies.length; i++) {
+  console.log(`Enemy ${i + 1}: ${enemies[i]}`);
+}
+
+// 'i' does not exist here -- it was scoped to the for loop block
+</code></pre>
+
+<!-- ===============================================
+     VAR
+     =============================================== -->
+<h2><code>var</code>: The Old Way (Avoid It)</h2>
+
+<p>
+  <code>var</code> is the original JavaScript variable declaration keyword. It predates <code>const</code> and <code>let</code>, and it
+  has two behaviors that cause real bugs: function scope and hoisting.
+</p>
+
+<h3>Function Scope (Not Block Scope)</h3>
+
+<p>
+  Unlike <code>const</code> and <code>let</code>, <code>var</code> is scoped to the nearest <strong>function</strong>, not the nearest
+  block. This means a <code>var</code> declared inside an <code>if</code> block leaks out into the whole function.
+</p>
+
+<pre><code class="language-typescript">
+function checkHealth(health: number): void {
+  if (health <= 0) {
+    var message: string = "Game Over"; // declared inside the if-block...
+  }
+
+  console.log(message); // ...but accessible out here! Prints "Game Over" or undefined
+}
+</code></pre>
+
+<p>
+  With <code>let</code>, the same code would throw an error at the <code>console.log</code> line, which is exactly what you want. The
+  bug becomes visible immediately instead of silently producing <code>undefined</code>.
+</p>
+
+<h3>Hoisting</h3>
+
+<p>
+  <code>var</code> declarations are <strong>hoisted</strong> to the top of their containing function. This means you can reference a
+  <code>var</code> variable before the line where you declared it, and it will not throw an error. It will just be
+  <code>undefined</code>.
+</p>
+
+<pre><code class="language-typescript">
+function demonstrateHoisting(): void {
+  console.log(enemy); // Prints: undefined (no error -- but this is a bug waiting to happen)
+  var enemy: string = "Goblin";
+  console.log(enemy); // Prints: "Goblin"
+}
+</code></pre>
+
+<p>
+  TypeScript compiles down to JavaScript, and this hoisting behavior is inherited from JavaScript. With <code>let</code> or
+  <code>const</code>, referencing a variable before its declaration is a compile-time error, which is much safer.
+</p>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Do not use <code>var</code> in new TypeScript code. It exists only for backwards compatibility with old JavaScript. The
+      TypeScript compiler will even warn you if you enable the <code>noVar</code> linting rule. Always use <code>const</code> or
+      <code>let</code> instead.
+    </p>
+  </div>
+</div>
+
+<!-- ===============================================
+     COMPARISON TABLE
+     =============================================== -->
+<h2>Comparison at a Glance</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Keyword</th>
+      <th>Reassignable?</th>
+      <th>Scope</th>
+      <th>Hoisted?</th>
+      <th>Use it?</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>const</code></td>
+      <td>No</td>
+      <td>Block</td>
+      <td>No</td>
+      <td>Yes, by default</td>
+    </tr>
+    <tr>
+      <td><code>let</code></td>
+      <td>Yes</td>
+      <td>Block</td>
+      <td>No</td>
+      <td>Yes, when value changes</td>
+    </tr>
+    <tr>
+      <td><code>var</code></td>
+      <td>Yes</td>
+      <td>Function</td>
+      <td>Yes</td>
+      <td>No, avoid it</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ===============================================
+     EXCALIBUR PLAYGROUND
+     =============================================== -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The starter code below uses <code>const</code> for values that never change and <code>let</code> for the score, which updates as the
+  game runs. Read through the declarations and notice how each keyword signals the programmer's intent.
+</p>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Try It: const and let in a Game Loop"
+  height="500"
+></excalibur-playground>
+
+<!-- ===============================================
+     EXERCISE
+     =============================================== -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Declare Variables for a Game Character</div>
+  <div class="exercise__body">
+    <p>
+      Open your TypeScript editor and declare variables for a simple game character. Choose the correct keyword for each one based on
+      whether the value will change.
+    </p>
+    <ol>
+      <li>
+        Declare a variable <code>characterName</code> with the value <code>"Aria"</code>. Should it ever change? Pick the right
+        keyword.
+      </li>
+      <li>
+        Declare a variable <code>health</code> starting at <code>100</code>. Health changes during gameplay. Pick the right keyword.
+      </li>
+      <li>Declare a variable <code>maxHealth</code> set to <code>100</code>. This cap never changes. Pick the right keyword.</li>
+      <li>Simulate taking damage: subtract <code>25</code> from <code>health</code> and log the result.</li>
+      <li>Try reassigning <code>characterName</code> and observe the TypeScript error.</li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript enforces your intent. Reassigning a <code>const</code> produces a compile error, and
+      <code>health</code> updates correctly with <code>let</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ===============================================
+     CHALLENGE
+     =============================================== -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Spot the Bug</div>
+  <p>
+    The following function uses <code>var</code> and contains a scoping bug. Rewrite it using <code>const</code> and
+    <code>let</code> so that it behaves correctly and the bug becomes a compile error instead of a silent runtime problem.
+  </p>
+  <pre><code class="language-typescript">
+function awardBonus(score: number, levelComplete: boolean): number {
+  if (levelComplete) {
+    var bonus = 500;
+  }
+  return score + bonus; // What happens if levelComplete is false?
+}
+  </code></pre>
+</section>
+
+<!-- ===============================================
+     SUMMARY
+     =============================================== -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>Use <code>const</code> by default. It prevents reassignment and signals that a value is fixed.</li>
+    <li>Use <code>let</code> when a variable genuinely needs to be reassigned, such as a counter or running total.</li>
+    <li>
+      Both <code>const</code> and <code>let</code> are block-scoped, meaning they exist only within the curly braces where they are
+      declared.
+    </li>
+    <li>
+      Avoid <code>var</code>. Its function scope and hoisting behavior lead to subtle bugs that block-scoped declarations prevent
+      entirely.
+    </li>
+    <li><code>const</code> on an object prevents reassigning the variable, but the object's properties can still be mutated.</li>
   </ul>
 </section>

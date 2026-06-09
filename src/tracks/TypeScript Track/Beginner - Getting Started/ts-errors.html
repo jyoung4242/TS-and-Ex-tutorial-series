@@ -1,0 +1,302 @@
+<!--
+  reading-typescript-errors.html
+  ================================
+  Track: TypeScript for Game Dev
+  Topic: Reading TypeScript Errors
+
+  IMPORTANT:
+  - This file is CONTENT ONLY — no <html>, <head>, or <body> tags.
+  - It will be injected into the lesson-view component by lesson-view.js.
+  - The outer shell (header, nav, breadcrumbs) is handled by the app.
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Read a TypeScript error message and identify its three key parts: location, code, and description</li>
+    <li>Recognize the five most common TypeScript error codes on sight</li>
+    <li>Apply a repeatable five-step strategy for diagnosing and resolving any TypeScript error</li>
+    <li>Distinguish between compiler errors you must fix and warnings you can defer</li>
+    <li>Understand why suppressing errors with <code>@ts-ignore</code> or <code>any</code> causes more problems than it solves</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  TypeScript errors feel intimidating at first because they're verbose and precise in ways plain JavaScript never was. That precision
+  is the point. TypeScript is not scolding you — it's giving you a detailed, machine-readable description of a contract violation so
+  you can fix it without guessing. The skill is learning to extract the signal from the noise.
+</p>
+
+<p>
+  Once you can read a TypeScript error, it becomes a precise instruction rather than a wall of red text. This lesson teaches you the
+  anatomy of an error, the small set of error codes you'll see over and over again, and a repeatable strategy you can apply to any
+  error you encounter — even ones you've never seen before.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     PART 1: ANATOMY OF A TYPESCRIPT ERROR
+     ═══════════════════════════════════════════════ -->
+<h2>Anatomy of a TypeScript Error</h2>
+
+<p>Every TypeScript error has three parts, always in this order:</p>
+
+<pre><code class="language-typescript">
+// Format:
+// FILE(LINE,COL): error TS####: Human-readable description
+//
+// Real example (what you'd see if you assigned a plain string to a Color property):
+// Type 'string' is not assignable to type 'Color'.(2322)
+// index.d.ts(12679, 3): The expected type comes from property 'color' which is declared here on type 'ActorArgs'
+</code></pre>
+
+<p>Break it down:</p>
+
+<ul>
+  <li>
+    <strong><code>index.d.ts(12679, 3)</code></strong> — The file, line number, and column. Go here first. This is exactly where
+    TypeScript stopped trusting your code.
+  </li>
+  <li>
+    <strong><code>error TS2322</code></strong> — The error code. A stable, searchable number. Every TypeScript error has one. More on
+    this below.
+  </li>
+  <li>
+    <strong>The description</strong> — Plain English (mostly). Read it literally. TypeScript is telling you what it expected and what
+    it actually found.
+  </li>
+</ul>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Search the error code — not the full message — when Googling. <code>TS2345</code> returns thousands of solved examples. The full
+      message often contains your specific type names, which confuse search engines.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PART 2: THE MOST COMMON ERRORS
+     ═══════════════════════════════════════════════ -->
+<h2>The Most Common Errors You'll See</h2>
+
+<p>
+  You will encounter a small set of error codes over and over again. Recognizing them on sight saves enormous time. Here are the five
+  you'll meet most often in Excalibur game development:
+</p>
+
+<pre><code class="language-typescript">
+// TS2345 — Wrong argument type
+function moveActor(speed: number) { /* ... */ }
+moveActor("fast"); // ❌ TS2345: 'string' is not assignable to 'number'
+
+// TS2339 — Property doesn't exist on a type
+const actor = new ex.Actor();
+actor.spreed = 100; // ❌ TS2339: Property 'spreed' does not exist on type 'Actor'
+                    //           (it's 'vel', not 'spreed' — a typo!)
+
+// TS2322 — Assigning the wrong type to a variable
+let health: number = 100;
+health = "full"; // ❌ TS2322: Type 'string' is not assignable to type 'number'
+
+// TS7006 — Implicit 'any' (parameter with no type annotation)
+function takeDamage(amount) { // ❌ TS7006: Parameter 'amount' implicitly has 'any' type
+  health -= amount;
+}
+
+// TS2554 — Wrong number of arguments
+function spawn(x: number, y: number) { /* ... */ }
+spawn(100); // ❌ TS2554: Expected 2 arguments, but got 1
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      <strong>TS2339</strong> (property doesn't exist) is the single most useful error for catching typos. If you mistype a method or
+      property name, TypeScript catches it immediately. JavaScript would silently return <code>undefined</code> and let you spend an
+      hour debugging.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PART 3: A STRATEGY FOR READING ANY ERROR
+     ═══════════════════════════════════════════════ -->
+<h2>A Strategy for Reading Any Error</h2>
+
+<p>
+  When you hit a TypeScript error you don't immediately recognize, work through these steps in order. This process works regardless of
+  the error code — use it every time until it becomes instinct.
+</p>
+
+<ol>
+  <li>
+    <strong>Go to the location.</strong> Open the file at the line and column number. Don't read the full error message yet — just get
+    your eyes on the code.
+  </li>
+  <li>
+    <strong>Read the description literally.</strong> TypeScript says exactly what type it expected and what type it received. Map those
+    two things onto the code in front of you.
+  </li>
+  <li>
+    <strong>Hover in your editor.</strong> In VS Code (and the Playground), hovering over a red-underlined token shows the full error
+    inline — often with more context than the terminal output.
+  </li>
+  <li>
+    <strong>Search the error code.</strong> Copy just <code>TS####</code> into Google or the TypeScript error reference. Read one or
+    two examples to confirm you understand the pattern.
+  </li>
+  <li>
+    <strong>Fix the nearest thing first.</strong> TypeScript errors can cascade — one wrong type upstream causes five errors
+    downstream. Fix the first error in the list, recompile, and see how many disappear before tackling the rest.
+  </li>
+</ol>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Don't silence errors with <code>// @ts-ignore</code> or by casting everything to <code>any</code> just to make the red go away.
+      You're not fixing the problem — you're hiding it. TypeScript errors that get suppressed have a way of becoming runtime bugs at
+      the worst possible moment.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PART 4: ERRORS VS. WARNINGS
+     ═══════════════════════════════════════════════ -->
+<h2>Errors vs. Warnings</h2>
+
+<p>
+  TypeScript output distinguishes between <strong>errors</strong> and <strong>warnings</strong>. Errors block compilation — your code
+  won't run. Warnings surface in your editor but don't stop the build.
+</p>
+
+<pre><code class="language-typescript">
+// An error — compilation stops:
+const x: number = "hello"; // TS2322
+
+// A warning — runs, but your editor will flag it:
+const unused = 42; // TS6133: 'unused' is declared but its value is never read
+                   // (only a warning in many tsconfig setups)
+</code></pre>
+
+<p>
+  In the Playground, anything underlined in red is an error you need to resolve before Run will produce a working game. Underlined in
+  yellow is a warning — worth addressing, but it won't stop your game from starting.
+</p>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      TypeScript errors are not personal. They mean the compiler gathered enough information to tell you something is wrong
+      <em>before</em> your game crashes. Every error you read and fix is a runtime bug that never happened.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TRY IT
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Error Identification</h2>
+
+<p>
+  The embed below loads a minimal Excalibur scene. Use it as your sandbox for the exercise below — you'll deliberately introduce errors
+  and practice reading them before fixing them.
+</p>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Try It: Reading TypeScript Errors"
+  height="600"
+></excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Break It, Then Fix It</div>
+  <div class="exercise__body">
+    <p>
+      Introduce each of the following errors deliberately in the Playground above. After each one, read the error message carefully
+      before fixing it. The goal is to train your eye on what each error <em>looks</em> like, not just what caused it.
+    </p>
+    <ol>
+      <li>
+        Find the actor's velocity assignment and change the numeric value to a string (e.g., <code>"fast"</code>). Click Run and locate
+        the TS2322 or TS2345 error. What line did TypeScript point to? What were the two types it described?
+      </li>
+      <li>
+        Introduce a typo in a property name — for example, change <code>vel</code> to <code>vell</code>. Click Run. Find the TS2339
+        error. Note that TypeScript told you the property doesn't exist, not that the value is wrong.
+      </li>
+      <li>Fix both errors. Confirm the game runs again by clicking Run and watching the canvas.</li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> A working game canvas after your fixes, and a clear mental image of what TS2322, TS2345, and
+      TS2339 look like in the editor.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Cascade Hunting</div>
+  <p>
+    Change the type of a variable that's used in multiple places — for example, declare a variable as <code>string</code> that
+    currently holds a number and is passed to several functions. Count how many errors appear. Fix only the root cause (the variable
+    declaration) and see how many downstream errors vanish automatically. This is the "fix the first error" strategy in action.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span
+        >Every TypeScript error has three parts: a file/line location, an error code (<code>TS####</code>), and a plain-language
+        description. Always start with the location.</span
+      >
+    </li>
+    <li>
+      The most common errors are TS2345 (wrong argument type), TS2339 (property doesn't exist — great for catching typos), TS2322
+      (wrong assignment type), TS7006 (implicit any), and TS2554 (wrong number of arguments).
+    </li>
+    <li>
+      <span
+        >When stuck, search the error <em>code</em>, not the full message. Fix errors from the top of the list down — one upstream fix
+        often collapses several downstream errors.</span
+      >
+    </li>
+    <li>Errors block compilation and must be resolved. Warnings surface in the editor but won't prevent the game from running.</li>
+    <li>
+      <span>
+        Don't suppress errors with <code>@ts-ignore</code> or <code>any</code>. TypeScript errors are advance warnings of runtime bugs
+        — fix them, don't hide them.
+      </span>
+    </li>
+  </ul>
+</section>

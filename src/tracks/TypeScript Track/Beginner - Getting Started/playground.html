@@ -1,0 +1,222 @@
+<!--
+  playground-orientation.html
+  ============================
+  Track: TypeScript for Game Dev
+  Topic: The Excalibur Playground
+
+  IMPORTANT:
+  - This file is CONTENT ONLY — no <html>, <head>, or <body> tags.
+  - It will be injected into the lesson-view component by lesson-view.js.
+  - The outer shell (header, nav, breadcrumbs) is handled by the app.
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Navigate the Excalibur Playground and understand what each panel does</li>
+    <li>Run, edit, and reset a live Excalibur example without any local setup</li>
+    <li>Use Share to preserve and share Playground code as a permalink</li>
+    <li>Understand what the Playground is designed for and where it falls short compared to a local project</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Before writing your first real game, you need a place to experiment safely — somewhere you can try an idea in seconds without
+  touching your local project, breaking a build, or waiting for a install step. The Excalibur Playground is that place. Every
+  interactive example in this course opens there, and the faster you're comfortable with it, the faster everything else clicks.
+</p>
+
+<p>
+  This lesson is a guided orientation. You'll learn what the three regions of the Playground do, which four controls you actually need,
+  and — importantly — what the Playground is <em>not</em> designed for. That last part matters: knowing the limits of a tool is just as
+  useful as knowing its features.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     PART 1: ANATOMY OF THE PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Anatomy of the Playground</h2>
+
+<p>
+  The Excalibur Playground is a browser-based environment that runs TypeScript and Excalibur code live — no install, no build step, no
+  local server required. When it loads you'll see three regions:
+</p>
+
+<ul>
+  <li>
+    <strong>Code editor</strong> — A Monaco-based editor (the same engine that powers VS Code) with TypeScript syntax highlighting,
+    autocomplete, and inline error squiggles. This is where you write or modify code.
+  </li>
+  <li><strong>Game canvas</strong> — The live preview. Excalibur renders here. It updates every time you click <em>Run</em>.</li>
+  <li>
+    <strong>Controls</strong> — Buttons for Auto Save, Build &amp; Run, Toggle Debug, and Share. Also, there are hotkeys available for
+    loading different quick-start projects.
+  </li>
+</ul>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      The Playground does <em>not</em> auto-run on every keystroke. You explicitly press <strong>Run</strong> (or the keyboard shortcut
+      shown in the toolbar) to compile and execute. This is intentional — it lets you finish a thought before seeing the result.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PART 2: KEY CONTROLS
+     ═══════════════════════════════════════════════ -->
+<h2>Key Controls</h2>
+
+<p>You only need to know four things to be productive in the Playground:</p>
+
+<pre><code class="language-typescript">
+// ▶  Run           — compile TypeScript and start the game
+// ⟳  Toggle Debug  — show/hide the debug overlay with colliders
+// 🔗 Share         — copies the playground link to your clipboard to send to a friend!
+// ⌘  Autosave     — automatically updates the URL with a permalink on every run
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Use <strong>Share</strong> whenever you want to ask a question in the community Discord. A link to your exact broken code is
+      worth a thousand screenshots.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PART 3: WHAT THE PLAYGROUND IS (AND ISN'T)
+     ═══════════════════════════════════════════════ -->
+<h2>What the Playground Is (and Isn't)</h2>
+
+<p>
+  The Playground is optimized for learning isolated concepts quickly. A few things to keep in mind as you use it across the course:
+</p>
+
+<ul>
+  <li>
+    <strong>It's ephemeral by default.</strong> Refreshing the page resets your code unless you used Share to save a permalink. Copy
+    your work before closing the tab.
+  </li>
+  <li>
+    <strong>It uses a fixed Excalibur version.</strong> The version shown in the toolbar matches the version taught in this course. If
+    you check the official Excalibur docs and see a newer API, don't panic — the concepts transfer even if method names shift.
+  </li>
+  <li>
+    <strong>It doesn't replace a local project.</strong> The Playground has no file system, no asset pipeline, and no module bundler.
+    For real games you'll graduate to a local setup. The Playground is your scratchpad.
+  </li>
+</ul>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      When a lesson says "Try it in the Playground," that's not optional busy-work. Typing code — even code you fully understand —
+      builds muscle memory that reading alone never does. Run every example. Then break it on purpose.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TRY IT
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Playground Orientation</h2>
+
+<p>
+  The embed below loads a minimal Excalibur scene — a single colored rectangle sitting still on the screen. Before touching anything,
+  take 30 seconds to read through the code and predict what you think each line does. Then hit <strong>Run</strong>.
+</p>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Try It: Playground Orientation"
+  height="600"
+></excalibur-playground>
+
+<p>
+  Now try one deliberate change: find the actor's color value and change it to something new — try <code>ex.Color.Red</code> or
+  <code>ex.Color.Blue</code>. Click Run again. Notice that <em>you</em> control when the game recompiles. The Playground waits for you.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Explore Every Control</div>
+  <div class="exercise__body">
+    <p>
+      Using the Playground embed above, work through each of the following steps in order. The goal is to touch every major control at
+      least once so nothing feels unfamiliar when you need it mid-lesson.
+    </p>
+    <ol>
+      <li>
+        Click <strong>Run</strong> and confirm the game canvas shows a colored rectangle. Note the compile time shown in the toolbar.
+      </li>
+      <li>Click <strong>Toggle Debug</strong>. What new information appears on the canvas? Click it again to turn it off.</li>
+      <li>
+        Click <strong>Share</strong>. Open the link it generated in a new tab and confirm your code is there exactly as you left it.
+      </li>
+      <li>
+        Make any small edit — change a number or a color — and click Run. Observe that the URL updates automatically (Autosave in
+        action).
+      </li>
+    </ol>
+    <p><strong>Expected result:</strong> You've used all four controls and have a saved permalink to your modified example.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Build Something Tiny</div>
+  <p>
+    Starting from the minimal template, make the actor move. You'll need to set its velocity — look for <code>vel</code> on the actor.
+    Then use <strong>Toggle Debug</strong> to verify the collider is moving with it. Share the result. This is the smallest possible
+    "game" and a preview of what the next several lessons build toward.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      The Playground has three regions: code editor, game canvas, and control buttons. You control execution with Run — it does not
+      auto-run on every keystroke.
+    </li>
+    <li>
+      The four controls you need are Run, Toggle Debug, Share, and Autosave. Share is the most important for preserving and sharing
+      work.
+    </li>
+    <li>
+      Playground code is ephemeral by default. Use Share to save a permalink before closing the tab, or copy code into your local
+      project.
+    </li>
+    <li>
+      The Playground uses a fixed Excalibur version, has no file system or asset pipeline, and is not a replacement for a local project
+      — it's a scratchpad for learning isolated concepts fast.
+    </li>
+    <li>Running every example, and then deliberately breaking it, is the fastest way to build real understanding.</li>
+  </ul>
+</section>

@@ -3,9 +3,9 @@
 /* ── Lesson View Container ── */
 
 .lesson-view {
-  max-width: 860px;
+  max-width: 920px;
   margin: 0 auto;
-  padding: var(--space-10) var(--space-8);
+  padding: var(--space-4) var(--space-4);
   width: 100%;
 }
 
@@ -344,29 +344,45 @@
   background: var(--info-bg);
   border-color: var(--info);
 }
-.callout--note .callout__title { color: var(--info); }
-.callout--note .callout__body p { color: var(--text-secondary); }
+.callout--note .callout__title {
+  color: var(--info);
+}
+.callout--note .callout__body p {
+  color: var(--text-secondary);
+}
 
 .callout--tip {
   background: var(--success-bg);
   border-color: var(--success);
 }
-.callout--tip .callout__title { color: var(--success); }
-.callout--tip .callout__body p { color: var(--text-secondary); }
+.callout--tip .callout__title {
+  color: var(--success);
+}
+.callout--tip .callout__body p {
+  color: var(--text-secondary);
+}
 
 .callout--warning {
   background: var(--warning-bg);
   border-color: var(--warning);
 }
-.callout--warning .callout__title { color: var(--warning); }
-.callout--warning .callout__body p { color: var(--text-secondary); }
+.callout--warning .callout__title {
+  color: var(--warning);
+}
+.callout--warning .callout__body p {
+  color: var(--text-secondary);
+}
 
 .callout--remember {
   background: var(--accent-dim);
   border-color: var(--accent);
 }
-.callout--remember .callout__title { color: var(--accent); }
-.callout--remember .callout__body p { color: var(--text-secondary); }
+.callout--remember .callout__title {
+  color: var(--accent);
+}
+.callout--remember .callout__body p {
+  color: var(--text-secondary);
+}
 
 /* ── Objectives Box ── */
 
@@ -446,7 +462,9 @@
   font-size: var(--text-sm);
 }
 
-.exercise__body p { margin-bottom: var(--space-3); }
+.exercise__body p {
+  margin-bottom: var(--space-3);
+}
 
 /* ── Challenge Section ── */
 
@@ -604,7 +622,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── Responsive ── */

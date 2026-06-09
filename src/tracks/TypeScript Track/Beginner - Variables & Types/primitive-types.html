@@ -13,21 +13,24 @@
 
 <p>
   Every value in TypeScript has a type. The most fundamental types are called
-  <strong>primitives</strong> — they represent single, indivisible values.
-  TypeScript has three core primitives:
+  <strong>primitives</strong> — they represent single, indivisible values. TypeScript has three core primitives:
 </p>
 
-<ul style="list-style: disc; padding-left: 1.5rem; color: var(--text-secondary);">
-  <li style="margin-bottom: 0.5rem;"><strong><code>string</code></strong> — text values like <code>"Hello"</code> or <code>"Player One"</code></li>
-  <li style="margin-bottom: 0.5rem;"><strong><code>number</code></strong> — numeric values like <code>42</code>, <code>3.14</code>, or <code>-5</code></li>
-  <li style="margin-bottom: 0.5rem;"><strong><code>boolean</code></strong> — logical values: either <code>true</code> or <code>false</code></li>
+<ul style="list-style: disc; padding-left: 1.5rem; color: var(--text-secondary)">
+  <li style="margin-bottom: 0.5rem">
+    <strong><code>string</code></strong> — text values like <code>"Hello"</code> or <code>"Player One"</code>
+  </li>
+  <li style="margin-bottom: 0.5rem">
+    <strong><code>number</code></strong> — numeric values like <code>42</code>, <code>3.14</code>, or <code>-5</code>
+  </li>
+  <li style="margin-bottom: 0.5rem">
+    <strong><code>boolean</code></strong> — logical values: either <code>true</code> or <code>false</code>
+  </li>
 </ul>
 
 <h2>Annotating Primitive Types</h2>
 
-<p>
-  You annotate a variable's type by placing a colon and the type name after the variable name:
-</p>
+<p>You annotate a variable's type by placing a colon and the type name after the variable name:</p>
 
 <pre><code class="language-typescript">
 // Strings — for text
@@ -51,18 +54,15 @@ const gameOver: boolean = false;
   <div class="callout__body">
     <div class="callout__title">TypeScript has one number type</div>
     <p>
-      Unlike some languages that separate integers from floats (e.g., <code>int</code>
-      and <code>float</code> in C), TypeScript uses a single <code>number</code> type
-      for all numeric values. <code>42</code> and <code>3.14</code> are both <code>number</code>.
+      Unlike some languages that separate integers from floats (e.g., <code>int</code> and <code>float</code> in C), TypeScript uses a
+      single <code>number</code> type for all numeric values. <code>42</code> and <code>3.14</code> are both <code>number</code>.
     </p>
   </div>
 </div>
 
 <h2>What Happens With the Wrong Type?</h2>
 
-<p>
-  If you try to assign a value that doesn't match the declared type, TypeScript reports an error:
-</p>
+<p>If you try to assign a value that doesn't match the declared type, TypeScript reports an error:</p>
 
 <pre><code class="language-typescript">
 let score: number = 0;
@@ -72,18 +72,15 @@ score = "victory";  // ❌ Error: Type 'string' is not assignable to type 'numbe
 score = true;       // ❌ Error: Type 'boolean' is not assignable to type 'number'
 </code></pre>
 
-<p>
-  The error appears in your editor immediately — you don't have to run the code to find out.
-</p>
+<p>The error appears in your editor immediately — you don't have to run the code to find out.</p>
 
 <div class="callout callout--tip">
   <span class="callout__icon">💡</span>
   <div class="callout__body">
     <div class="callout__title">Think of types as promises</div>
     <p>
-      When you declare <code>let score: number</code>, you're making a promise:
-      "this variable will always hold a number." TypeScript holds you to that promise
-      everywhere <code>score</code> is used.
+      When you declare <code>let score: number</code>, you're making a promise: "this variable will always hold a number." TypeScript
+      holds you to that promise everywhere <code>score</code> is used.
     </p>
   </div>
 </div>
@@ -116,15 +113,14 @@ takeDamage(80);  // health = 0, isAlive = false
 <h2>Try It: See Primitives in Action</h2>
 
 <p>
-  The playground below has a minimal Excalibur game. Open the code tab and find
-  where primitive types are used — look for <code>string</code>, <code>number</code>,
-  and <code>boolean</code> annotations.
+  The playground below demonstrates how primitives work and what happens when you assign the wrong type. Try changing the values and
+  see how TypeScript responds!
 </p>
 
 <excalibur-playground
-  src="https://excaliburjs.com/playground?template=minimal"
+  src="https://excaliburjs.com/playground?code=DYUwLgBAzgxg9gJxALggOwK4FsBGIEQC8EADANwBQFsiIREAjCeRBBQPTsSCg5BAGIBLNHUAoBI2YQBUCAEN02PAio0k9AEQA3ATDCIAnmsqcIgGXIIAUQQJEqACp6ADnQDkUMAiEBzZ5Olo4kDJQUAKeaDI4oBC60Y4umLj4zsrwqsTuGCBGXGaW1gh2cRDOOHBwoDJoPlLoAbLBoeGRdDFgRc4Jis5AA?code=DYUwLgBAzgxg9gJxALggOwK4FsBGIEQC8EADANwBQFsiIREAjCeRBBQPTsSCg5BAGIBLNHUAoBI2YQBUCAEN02PAio0k9AEQA3ATDCIAnmsqcIgGXIIAUQQJEqACp6ADnQDkUMAiEBzZ5Olo4kDJQUAKeaDI4oBC60Y4umLj4zsrwqsTuGCBGXGaW1gh2cRDOOHBwoDJoPlLoAbLBoeGRdDFgRc4Jis5AA"
   label="Primitive Types in a Game"
-  height="480"
+  height="600"
 ></excalibur-playground>
 
 <section class="exercise">
@@ -139,7 +135,10 @@ takeDamage(80);  // health = 0, isAlive = false
       <li>An <code>isInvincible</code> boolean set to <code>false</code></li>
       <li>A <code>currentLevel</code> number starting at <code>1</code></li>
     </ol>
-    <p><strong>Expected result:</strong> Five variable declarations, each with a type annotation, that TypeScript accepts without errors.</p>
+    <p>
+      <strong>Expected result:</strong> Five variable declarations, each with a type annotation, that TypeScript accepts without
+      errors.
+    </p>
   </div>
 </section>
 
@@ -147,9 +146,8 @@ takeDamage(80);  // health = 0, isAlive = false
   <div class="challenge__label">🏆 Challenge</div>
   <div class="challenge__title">Trigger a Type Error</div>
   <p>
-    After completing the exercise, try assigning the wrong type to one of your variables —
-    for example, set <code>health</code> to a string. Read the error TypeScript gives you.
-    Then fix it. Understanding error messages is a core skill.
+    After completing the exercise, try assigning the wrong type to one of your variables — for example, set <code>health</code> to a
+    string. Read the error TypeScript gives you. Then fix it. Understanding error messages is a core skill.
   </p>
 </section>
 

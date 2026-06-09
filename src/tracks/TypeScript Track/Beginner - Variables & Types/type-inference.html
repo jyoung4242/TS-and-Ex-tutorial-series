@@ -1,25 +1,380 @@
-<!-- Stub: Type Inference — full content coming soon -->
+<!--
+  type-inference.html
+  Track:  typescript-fundamentals
+  Module: the-type-system
+  Lesson: type-inference
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Explain what type inference is and how TypeScript uses it to determine types automatically</li>
+    <li>Distinguish between situations where annotations are necessary versus where inference is sufficient</li>
+    <li>Recognize how inference works with variables, function return types, and array literals</li>
+    <li>Identify the <code>any</code> type as a sign that inference has failed, and know how to fix it</li>
   </ul>
 </section>
 
-<h2>Type Inference</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  One of the first things new TypeScript developers reach for is the type annotation:
+  <code>const score: number = 0</code>. It feels thorough. It feels safe. But TypeScript already knows that <code>0</code> is a number.
+  Writing the annotation is redundant, and doing it everywhere quickly turns code into noisy clutter.
+</p>
+
+<p>
+  TypeScript includes a powerful inference engine that figures out types from context, so you only need to annotate where things are
+  genuinely ambiguous. Understanding how inference works lets you write TypeScript that is both safe <em>and</em> readable. It also
+  helps you understand why TypeScript sometimes infers a type you did not expect.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>What Is Type Inference?</h2>
+
+<p>
+  Type inference is TypeScript's ability to determine the type of a value automatically, based on how that value is initialized or
+  used. You are not hiding the type from TypeScript; you are letting it do the work of figuring the type out.
+</p>
+
+<pre><code class="language-typescript">
+// TypeScript infers the type as `number` from the literal value
+const score = 100;
+
+// TypeScript infers the type as `string`
+const title = "TypeScript Academy";
+
+// TypeScript infers the type as `boolean`
+let isComplete = false;
+</code></pre>
+
+<p>
+  Hover over any of these in VS Code and you will see the inferred type in the tooltip. TypeScript is tracking the type; it just does
+  not need you to spell it out.
+</p>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      Inference is not a runtime feature. It happens entirely at compile time. The emitted JavaScript has no type information at all.
+    </p>
   </div>
 </div>
 
+<h2>Inference with <code>const</code> vs <code>let</code></h2>
+
+<p>
+  The choice between <code>const</code> and <code>let</code> changes what TypeScript infers, and for a good reason. A
+  <code>const</code> can never be reassigned, so TypeScript infers the narrowest possible type: the exact literal value. A
+  <code>let</code> might be reassigned, so TypeScript infers a wider type.
+</p>
+
+<pre><code class="language-typescript">
+const direction = "north";
+// Inferred type: "north"  (a string literal type)
+
+let direction2 = "north";
+// Inferred type: string  (the general string type)
+</code></pre>
+
+<p>
+  This distinction matters. With <code>const direction</code>, TypeScript knows the value can only ever be <code>"north"</code>. With
+  <code>let direction2</code>, TypeScript widens the type to <code>string</code> because you could later write
+  <code>direction2 = "south"</code>.
+</p>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Prefer <code>const</code> by default. Narrower inferred types catch more bugs. Reach for <code>let</code> only when you actually
+      need to reassign the variable.
+    </p>
+  </div>
+</div>
+
+<h2>Inference in Functions</h2>
+
+<p>
+  TypeScript infers function return types from the return statement. You do not usually need to annotate the return type explicitly.
+</p>
+
+<pre><code class="language-typescript">
+// Return type inferred as `number`
+function add(a: number, b: number) {
+  return a + b;
+}
+
+// Return type inferred as `string`
+function formatScore(score: number) {
+  return `Score: ${score}`;
+}
+
+// Return type inferred as `boolean`
+function isHighScore(score: number) {
+  return score > 1000;
+}
+</code></pre>
+
+<p>
+  Parameters, however, are a different story. TypeScript cannot infer parameter types from context in most cases, so you must annotate
+  them explicitly. If you forget, TypeScript falls back to <code>any</code>, which disables type checking for that value.
+</p>
+
+<pre><code class="language-typescript">
+// BAD: `score` is implicitly `any` -- TypeScript cannot check this
+function doubleScore(score) {
+  return score * 2;
+}
+
+// GOOD: annotate parameters, let the return type be inferred
+function doubleScore(score: number) {
+  return score * 2;  // return type is inferred as `number`
+}
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      With <code>strict</code> mode enabled (recommended), TypeScript will error on implicit <code>any</code> parameter types. This is
+      the right behavior. Annotate your parameters.
+    </p>
+  </div>
+</div>
+
+<h2>Inference with Arrays and Objects</h2>
+
+<p>
+  TypeScript inspects array and object literals to infer their types. For arrays, it infers the element type from the values present at
+  initialization.
+</p>
+
+<pre><code class="language-typescript">
+// Inferred as `number[]`
+const scores = [10, 20, 30];
+
+// Inferred as `string[]`
+const playerNames = ["Alice", "Bob", "Carol"];
+
+// Inferred as `(string | number)[]` -- a union type
+const mixed = ["Alice", 42];
+</code></pre>
+
+<p>Objects work the same way. TypeScript builds a type from the shape of the literal.</p>
+
+<pre><code class="language-typescript">
+// Inferred type: { name: string; score: number; isActive: boolean }
+const player = {
+  name: "Alice",
+  score: 0,
+  isActive: true,
+};
+
+// TypeScript now knows this is a type error
+player.score = "one hundred"; // Error: Type 'string' is not assignable to type 'number'
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      TypeScript infers object types from their initial shape. Properties you add later are not included in the inferred type, which is
+      one reason to define interfaces or type aliases for objects you plan to extend.
+    </p>
+  </div>
+</div>
+
+<h2>When to Write Explicit Annotations</h2>
+
+<p>Inference does not cover every situation. Write explicit annotations when:</p>
+
+<ul>
+  <li>Declaring a variable without initializing it: <code>let score: number;</code></li>
+  <li>Annotating function parameters (inference cannot help here)</li>
+  <li>The inferred type is too wide and you want to constrain it</li>
+  <li>You are defining an interface or type alias for a shared data shape</li>
+  <li>A function returns a complex type and you want to document it at the signature</li>
+</ul>
+
+<pre><code class="language-typescript">
+// Variable declared without initialization -- must annotate
+let highScore: number;
+highScore = 500;
+
+// Explicit return type as documentation and a safety net
+function calculateRank(score: number): "bronze" | "silver" | "gold" {
+  if (score >= 1000) return "gold";
+  if (score >= 500)  return "silver";
+  return "bronze";
+}
+</code></pre>
+
+<p>
+  Notice the last example. Even though TypeScript could infer the return type, writing it explicitly serves as documentation and guards
+  against accidentally returning a value outside the intended set.
+</p>
+
+<h2>The <code>any</code> Type: A Warning Sign</h2>
+
+<p>
+  When TypeScript cannot infer a type, it falls back to <code>any</code>. A value typed as <code>any</code> can be assigned anything
+  and used as anything, which effectively turns off type checking for that value. It is the escape hatch you want to avoid.
+</p>
+
+<pre><code class="language-typescript">
+// TypeScript infers `any[]` here -- it has no information to go on
+const items = [];
+
+// Push anything in, TypeScript will not stop you
+items.push("a string");
+items.push(42);
+items.push({ name: "oops" });
+</code></pre>
+
+<p>The fix is to annotate the variable explicitly so TypeScript knows what you intend:</p>
+
+<pre><code class="language-typescript">
+// Now TypeScript enforces the element type
+const items: string[] = [];
+
+items.push("a string");  // OK
+items.push(42);          // Error: Argument of type 'number' is not assignable to parameter of type 'string'
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Enable <code>"noImplicitAny": true</code> in your <code>tsconfig.json</code> (included automatically when you use
+      <code>"strict": true</code>). This turns implicit <code>any</code> into a compile error, making the problem impossible to miss.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Inference in a Game Context</h2>
+
+<p>
+  The code below sets up a minimal Excalibur scene. Notice that none of the local variables have explicit type annotations. TypeScript
+  infers every type from context. Try modifying values and observe what the editor flags as a type error.
+</p>
+
+<excalibur-playground label="Try It: Type Inference" height="500">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    // All types inferred -- no annotations needed
+    const game = new ex.Engine({
+      width: 600,
+      height: 400,
+      backgroundColor: ex.Color.fromHex("#1a1a2e"),
+    });
+
+    // Inferred as `number`
+    const playerSpeed = 200;
+
+    // Inferred as `ex.Actor`
+    const player = new ex.Actor({
+      x: 300,
+      y: 200,
+      width: 32,
+      height: 32,
+      color: ex.Color.Cyan,
+    });
+
+    // Inferred as `boolean`
+    let isMoving = false;
+
+    player.on("postupdate", () => {
+      isMoving = player.vel.size > 0;
+      // Try: isMoving = "yes";  -- TypeScript will catch this
+    });
+
+    game.add(player);
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Remove the Redundant Annotations</div>
+  <div class="exercise__body">
+    <p>
+      The code below is over-annotated. Your job is to remove every type annotation that TypeScript can infer on its own, leaving only
+      the ones that are genuinely necessary.
+    </p>
+    <pre><code class="language-typescript">
+const playerName: string = "Alice";
+const startingScore: number = 0;
+const isAlive: boolean = true;
+
+const inventory: string[] = ["sword", "shield"];
+
+function getDisplayName(name: string): string {
+  return `Player: ${name}`;
+}
+
+function isWinning(score: number): boolean {
+  return score > 500;
+}
+
+let currentLevel: number;
+currentLevel = 1;
+    </code></pre>
+    <ol>
+      <li>Copy the code into your editor (or the playground above).</li>
+      <li>Remove each annotation you believe is redundant.</li>
+      <li>Confirm TypeScript still compiles without errors.</li>
+      <li>Identify the one variable that still requires an explicit annotation and explain why.</li>
+    </ol>
+    <p><strong>Expected result:</strong> Six annotations removed. One annotation remains. Zero type errors.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Force a Narrower Inference</div>
+  <p>
+    Declare a variable <code>direction</code> using <code>let</code> that TypeScript should treat as the literal union type
+    <code>"north" | "south" | "east" | "west"</code>, not the wide <code>string</code> type. You must not use an explicit type
+    annotation. Hint: look up the <code>as const</code> assertion.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>TypeScript infers types from initializers, so you rarely need to annotate local variables.</li>
+    <li><code>const</code> infers narrow literal types; <code>let</code> infers wider general types.</li>
+    <li>Function parameters cannot be inferred and must always be annotated.</li>
+    <li>Return types are inferred from return statements but can be annotated explicitly as documentation.</li>
+    <li>An inferred <code>any</code> type means TypeScript has no information to go on; annotate explicitly to fix it.</li>
+    <li>Write explicit annotations for uninitialized variables, shared data shapes, and complex return types.</li>
   </ul>
 </section>
