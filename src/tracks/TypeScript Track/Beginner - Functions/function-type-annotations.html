@@ -1,25 +1,344 @@
-<!-- Stub: Function Basics — full content coming soon -->
+<!--
+  function-type-annotations.html
+  ================================
+  Track:  TypeScript Fundamentals
+  Module: Functions
+  Lesson: Function Type Annotations
+
+  IMPORTANT:
+  - This file is CONTENT ONLY — no <html>, <head>, or <body> tags.
+  - It will be injected into the lesson-view component by lesson-view.js.
+  - The outer shell (header, nav, breadcrumbs) is handled by the app.
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Annotate function parameters and return types explicitly in TypeScript</li>
+    <li>Understand when TypeScript infers return types and when to annotate them yourself</li>
+    <li>Use the <code>void</code> return type correctly for functions that produce no value</li>
+    <li>Identify type errors in function signatures before they ever reach runtime</li>
   </ul>
 </section>
 
-<h2>Function Basics</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine calling a function and not knowing what it expects or what it gives back. You pass in a number, it secretly wanted a string,
+  and the bug only surfaces at 2 AM in production. TypeScript's function type annotations exist to prevent exactly that scenario by
+  making a function's contract visible and machine-checkable right in the source code.
+</p>
+
+<p>
+  In JavaScript, function signatures are implicit. In TypeScript, you can make them explicit: every parameter can carry a type, and the
+  return value can too. The compiler then enforces that contract for every caller and every implementation, catching whole categories
+  of bugs before you ever run a line of code.
+</p>
+
+<p>
+  In this lesson you will annotate parameters and return types, learn when to let TypeScript infer and when to be explicit, and get
+  comfortable with <code>void</code>
+  for the common case of functions that do something but return nothing.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>Annotating Parameters</h2>
+
+<p>
+  A parameter annotation goes right after the parameter name, separated by a colon. TypeScript will reject any call that passes the
+  wrong type, and your editor will show autocomplete and inline error highlighting as you type.
+</p>
+
+<pre><code class="language-typescript">
+// Without annotations — TypeScript infers `a` and `b` as `any`
+function add(a, b) {
+  return a + b;
+}
+
+// With annotations — TypeScript knows exactly what is allowed
+function add(a: number, b: number) {
+  return a + b;
+}
+
+add(2, 3);        // OK
+add(2, "three");  // Error: Argument of type 'string' is not assignable to parameter of type 'number'
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      When you annotate all parameters, TypeScript can already infer what the function returns in simple cases. You will still often
+      want to annotate the return type explicitly — covered in the next section.
+    </p>
   </div>
 </div>
 
+<h3>Multiple Parameters and Mixed Types</h3>
+
+<p>
+  Each parameter is annotated independently, so a function can accept a mix of types as long as each argument matches its own
+  annotation.
+</p>
+
+<pre><code class="language-typescript">
+function formatScore(playerName: string, score: number, isHighScore: boolean): string {
+  const tag = isHighScore ? " 🏆" : "";
+  return `${playerName}: ${score}${tag}`;
+}
+
+formatScore("Ada", 4200, true);   // OK — returns "Ada: 4200 🏆"
+formatScore("Ada", "4200", true); // Error: 'string' is not assignable to 'number'
+</code></pre>
+
+<h2>Annotating Return Types</h2>
+
+<p>
+  The return type annotation goes after the parameter list, preceded by a colon and before the opening brace. It tells TypeScript (and
+  every reader of the code) what value to expect back.
+</p>
+
+<pre><code class="language-typescript">
+function multiply(a: number, b: number): number {
+  return a * b;
+}
+</code></pre>
+
+<p>TypeScript can usually infer this on its own. So why annotate it explicitly? There are three strong reasons:</p>
+
+<ul>
+  <li>
+    <strong>Catch mistakes inside the function.</strong> If your implementation accidentally returns the wrong type, TypeScript flags
+    it immediately rather than silently widening the inferred type.
+  </li>
+  <li>
+    <strong>Document intent.</strong> An explicit annotation is a promise to every caller. It survives refactors that might otherwise
+    silently change what gets returned.
+  </li>
+  <li>
+    <strong>Improve editor feedback.</strong> When callers know the return type up front, autocomplete is more accurate and faster.
+  </li>
+</ul>
+
+<pre><code class="language-typescript">
+// TypeScript infers the return type as `number | string` — probably not what you want
+function getHealth(isDead: boolean) {
+  if (isDead) return "dead"; // oops — mixed type slips through
+  return 100;
+}
+
+// Explicit annotation catches the mistake at the source
+function getHealth(isDead: boolean): number {
+  if (isDead) return "dead"; // Error: Type 'string' is not assignable to type 'number'
+  return 100;
+}
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      A good rule of thumb: always annotate return types on exported functions and public class methods. For small internal helpers,
+      inference is fine. The key question is whether other code depends on knowing that return type explicitly.
+    </p>
+  </div>
+</div>
+
+<h2>The <code>void</code> Return Type</h2>
+
+<p>
+  Many functions perform an action but do not return a meaningful value: logging to the console, updating state, firing a game event.
+  For these, TypeScript provides the <code>void</code> return type. It signals that callers should not rely on any return value from
+  the function.
+</p>
+
+<pre><code class="language-typescript">
+function logMessage(message: string): void {
+  console.log(`[Game] ${message}`);
+  // No return statement needed — void functions implicitly return `undefined`
+}
+
+logMessage("Player joined the game"); // OK
+const result = logMessage("test");    // `result` is typed as `void` — nearly useless on purpose
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      <code>void</code> and <code>undefined</code> are not the same thing, even though a <code>void</code> function returns
+      <code>undefined</code> at runtime. <code>void</code> means "the caller should ignore this return value." Annotating with
+      <code>undefined</code> would require an explicit <code>return undefined;</code> statement, which is rarely what you want.
+    </p>
+  </div>
+</div>
+
+<h3>void in Callbacks</h3>
+
+<p>
+  <code>void</code> appears frequently when you pass functions as callbacks and you do not care what the callback returns. This is
+  common in event systems and game loops.
+</p>
+
+<pre><code class="language-typescript">
+// A simple event emitter pattern
+function onCollision(handler: (actorName: string) => void): void {
+  // Calls `handler` when a collision occurs; ignores any return value
+  handler("Enemy");
+}
+
+onCollision((name) => {
+  console.log(`Collided with ${name}`);
+});
+</code></pre>
+
+<h2>Catching Errors Before Runtime</h2>
+
+<p>
+  The real payoff of type annotations is that TypeScript surfaces signature mismatches the moment you write the code, not when users
+  run it. Here are the most common errors you will encounter and what they mean.
+</p>
+
+<pre><code class="language-typescript">
+function spawnEnemy(x: number, y: number): void {
+  console.log(`Spawning enemy at (${x}, ${y})`);
+}
+
+// Error 1: Too few arguments
+spawnEnemy(10);
+// Error: Expected 2 arguments, but got 1.
+
+// Error 2: Wrong type
+spawnEnemy(10, "top");
+// Error: Argument of type 'string' is not assignable to parameter of type 'number'.
+
+// Error 3: Ignoring a required return value annotation
+function getPlayerName(): string {
+  return 42;
+  // Error: Type 'number' is not assignable to type 'string'.
+}
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      TypeScript errors are not failures — they are free bug reports. Every red squiggle in your editor is a runtime crash that never
+      happened. Treat them as your first line of testing.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Function Signatures in a Game Context</h2>
+
+<p>
+  The playground below contains a small Excalibur scene with a few functions that manage a player actor. Some of the function
+  signatures are intentionally broken. Your job is to add the correct parameter and return type annotations so that TypeScript stops
+  complaining and the game logic is clearly documented.
+</p>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Try It: Function Type Annotations"
+  height="500"
+></excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Annotate a Mini Game API</div>
+  <div class="exercise__body">
+    <p>
+      Below is a set of plain JavaScript functions for a simple score tracker. Rewrite them in TypeScript by adding parameter and
+      return type annotations to every function.
+    </p>
+    <pre><code class="language-typescript">
+// 1. Takes a player name and a score, returns a formatted string like "Ada: 500"
+function formatScore(playerName, score) {
+  return `${playerName}: ${score}`;
+}
+
+// 2. Takes two scores and returns the higher one
+function highestScore(a, b) {
+  return a > b ? a : b;
+}
+
+// 3. Takes a score and a threshold, returns true if score exceeds threshold
+function isNewRecord(score, threshold) {
+  return score > threshold;
+}
+
+// 4. Logs a message to the console — does not return anything
+function logEvent(message) {
+  console.log(`[Event] ${message}`);
+}
+    </code></pre>
+    <ol>
+      <li>Add a parameter type annotation to each parameter.</li>
+      <li>Add a return type annotation to each function.</li>
+      <li>For <code>logEvent</code>, use <code>void</code> as the return type.</li>
+      <li>Verify your work: try calling each function with a wrong type and confirm TypeScript flags the error.</li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> All four functions compile cleanly with correct annotations, and passing a wrong-typed argument
+      to any of them produces a TypeScript error.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Optional Parameters and Defaults</div>
+  <p>
+    TypeScript lets you mark a parameter as optional with a <code>?</code> suffix, or give it a default value. Research how optional
+    parameters interact with return type annotations, then rewrite <code>formatScore</code> so that the score parameter is optional and
+    defaults to <code>0</code> when omitted. Make sure the return type annotation remains correct and the function still compiles
+    cleanly whether you pass a score or not.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>Parameter annotations use the <code>name: type</code> syntax and prevent callers from passing the wrong kind of value.</li>
+    <li>
+      Return type annotations go after the parameter list and make a function's output explicit, catching implementation mistakes at
+      the source.
+    </li>
+    <li>
+      TypeScript can infer return types in simple cases, but annotating explicitly is best practice for exported functions and public
+      APIs.
+    </li>
+    <li>
+      Use <code>void</code> for functions that perform an action and return no meaningful value — it signals to callers that the return
+      value should be ignored.
+    </li>
+    <li>
+      Type errors in function signatures are caught at compile time, before any code runs, making them far cheaper to fix than runtime
+      bugs.
+    </li>
   </ul>
 </section>

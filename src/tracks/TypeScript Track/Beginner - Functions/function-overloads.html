@@ -1,25 +1,362 @@
-<!-- Stub: Return Types — full content coming soon -->
+<!--
+  function-overloads.html
+  ========================
+  Track:  TypeScript Core
+  Module: Functions
+  Lesson: Function Overloads
+
+  IMPORTANT:
+  - This file is CONTENT ONLY — no <html>, <head>, or <body> tags.
+  - It will be injected into the lesson-view component by lesson-view.js.
+  - The outer shell (header, nav, breadcrumbs) is handled by the app.
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Explain what function overloads are and why TypeScript needs them</li>
+    <li>Write overload signatures and a matching implementation signature correctly</li>
+    <li>Choose the right return type inside the implementation body using type narrowing</li>
+    <li>Identify when overloads are the right tool versus simpler alternatives like union types</li>
+    <li>Apply overloads to an Excalibur-style factory function that returns different actor types</li>
   </ul>
 </section>
 
-<h2>Return Types</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you are writing a helper function that creates a game sprite. When the caller passes a <code>string</code>, the function
+  looks up the sprite by name and returns a <code>Sprite</code>. When the caller passes a <code>SpriteConfig</code> object, it builds a
+  sprite from scratch and returns a <code>AnimatedSprite</code>. Both call the same function, but the return type depends on the input
+  type. How do you express that to TypeScript?
+</p>
+
+<p>
+  A plain union type on the parameter (<code>string | SpriteConfig</code>) with a union return type (<code
+    >Sprite | AnimatedSprite</code
+  >) would compile, but it forces every caller to narrow the result themselves even when they already know which branch they took.
+  <strong>Function overloads</strong> let you declare each valid input/output combination as its own signature, so TypeScript picks the
+  exact return type for you at each call site.
+</p>
+
+<p>
+  In this lesson you will learn how to write overload signatures, how to satisfy them with a single implementation signature, and when
+  to reach for this pattern versus simpler alternatives.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>What Is a Function Overload?</h2>
+
+<p>
+  A TypeScript function overload is a set of two or more <em>overload signatures</em> followed by one
+  <em>implementation signature</em>. Only the overload signatures are visible to callers. The implementation signature is hidden; it
+  exists purely to satisfy all the overloads at once.
+</p>
+
+<pre><code class="language-typescript">
+// Overload signature 1 — visible to callers
+function createSprite(name: string): Sprite;
+
+// Overload signature 2 — visible to callers
+function createSprite(config: SpriteConfig): AnimatedSprite;
+
+// Implementation signature — NOT visible to callers
+function createSprite(nameOrConfig: string | SpriteConfig): Sprite | AnimatedSprite {
+  if (typeof nameOrConfig === "string") {
+    return lookupSprite(nameOrConfig);   // returns Sprite
+  }
+  return buildAnimatedSprite(nameOrConfig); // returns AnimatedSprite
+}
+</code></pre>
+
+<p>
+  When a caller writes <code>createSprite("hero")</code>, TypeScript matches the first overload and types the result as
+  <code>Sprite</code>, with no extra narrowing required. When the caller writes <code>createSprite({ frames: [...] })</code>,
+  TypeScript matches the second overload and types the result as <code>AnimatedSprite</code>.
+</p>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      TypeScript tries each overload signature in order and uses the first one that matches. Put the most specific signatures first to
+      avoid unexpected matches.
+    </p>
   </div>
 </div>
 
+<h2>Anatomy of an Overload</h2>
+
+<h3>The Overload Signatures</h3>
+
+<p>
+  Each overload signature looks like a normal function declaration but has no body. It describes one specific combination of parameter
+  types and return type that you are promising to support.
+</p>
+
+<pre><code class="language-typescript">
+// Two overload signatures for a "move actor" utility
+function moveActor(actor: Actor, x: number, y: number): void;
+function moveActor(actor: Actor, position: Vector): void;
+</code></pre>
+
+<h3>The Implementation Signature</h3>
+
+<p>
+  The implementation signature must be compatible with <em>all</em> overload signatures above it. Its parameter types are usually union
+  types, and its return type is the union of all overload return types.
+</p>
+
+<pre><code class="language-typescript">
+// Implementation — must handle both calling patterns
+function moveActor(
+  actor: Actor,
+  xOrPosition: number | Vector,
+  y?: number
+): void {
+  if (typeof xOrPosition === "number") {
+    actor.pos = vec(xOrPosition, y!);
+  } else {
+    actor.pos = xOrPosition;
+  }
+}
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      The implementation signature is <strong>invisible to callers</strong>. If you call your own function with a combination of
+      arguments that only matches the implementation signature but not any overload signature, TypeScript will reject it. Every valid
+      call pattern must have a matching overload signature.
+    </p>
+  </div>
+</div>
+
+<h3>Narrowing Inside the Implementation</h3>
+
+<p>
+  Inside the implementation body you work with the broad union types, so you must narrow them before using them. Standard narrowing
+  techniques all work: <code>typeof</code>, <code>instanceof</code>, and type guard functions.
+</p>
+
+<pre><code class="language-typescript">
+type SpawnOptions =
+  | { kind: "enemy"; health: number }
+  | { kind: "pickup"; value: number };
+
+function spawnActor(label: string): Actor;
+function spawnActor(options: SpawnOptions): Actor;
+function spawnActor(labelOrOptions: string | SpawnOptions): Actor {
+  // Narrow with typeof
+  if (typeof labelOrOptions === "string") {
+    return new Actor({ name: labelOrOptions });
+  }
+
+  // Narrow with a discriminant property
+  if (labelOrOptions.kind === "enemy") {
+    return new EnemyActor({ health: labelOrOptions.health });
+  }
+
+  return new PickupActor({ value: labelOrOptions.value });
+}
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Discriminated unions (objects that share a literal <code>kind</code> or <code>type</code> property) pair especially well with
+      overloads. Each overload maps to one variant, and narrowing by the discriminant inside the implementation is clean and
+      exhaustive.
+    </p>
+  </div>
+</div>
+
+<h2>Overloads on Class Methods</h2>
+
+<p>
+  Overloads work on class methods too. The syntax is identical; just omit the
+  <code>function</code> keyword and place the signatures inside the class body.
+</p>
+
+<pre><code class="language-typescript">
+class Scene {
+  // Overload 1: add by Actor instance
+  add(actor: Actor): void;
+  // Overload 2: add by config object, receive back the created Actor
+  add(config: ActorConfig): Actor;
+
+  // Implementation
+  add(actorOrConfig: Actor | ActorConfig): void | Actor {
+    if (actorOrConfig instanceof Actor) {
+      this.actors.push(actorOrConfig);
+      return;
+    }
+    const actor = new Actor(actorOrConfig);
+    this.actors.push(actor);
+    return actor;
+  }
+
+  private actors: Actor[] = [];
+}
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      Every overload signature must be immediately adjacent to the implementation signature with no other statements in between.
+      Inserting code between them is a syntax error.
+    </p>
+  </div>
+</div>
+
+<h2>When to Use Overloads (and When Not To)</h2>
+
+<p>
+  Overloads solve a specific problem: the return type (or behavior) changes depending on the type of the input. Before reaching for
+  them, consider whether a simpler approach covers your needs.
+</p>
+
+<pre><code class="language-typescript">
+// SIMPLE CASE — a union parameter with one return type
+// No overload needed; union parameter is fine.
+function setVolume(value: number | "mute"): void {
+  // ...
+}
+
+// OVERLOAD CASE — return type changes with input type
+// Without overloads every caller must narrow the result.
+function getAsset(id: number): ImageSource;
+function getAsset(id: string): SoundSource;
+function getAsset(id: number | string): ImageSource | SoundSource {
+  return typeof id === "number"
+    ? imageAssets.get(id)!
+    : soundAssets.get(id)!;
+}
+
+// Caller gets a precise type — no cast, no narrowing
+const img = getAsset(42);   // ImageSource
+const snd = getAsset("bgm"); // SoundSource
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      If every overload has the same return type, a union parameter is almost always cleaner. Overloads add indirection, so only add
+      them when the precision they provide is actually useful to callers.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Overloads in a Game Factory</h2>
+
+<p>
+  The playground below contains a stripped-down Excalibur scene. A
+  <code>spawnActor</code> function is declared with two overloads: one that accepts a string label and one that accepts a config object
+  with a color and size. Experiment with calling each overload and notice how TypeScript infers the return type at each call site
+  without any casting.
+</p>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Try It: Function Overloads"
+  height="500"
+></excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Typed Asset Loader</div>
+  <div class="exercise__body">
+    <p>Write an overloaded function called <code>loadAsset</code> that behaves differently based on the type of its first argument:</p>
+    <ol>
+      <li>
+        When called with a <code>string</code> (a file path ending in <code>.png</code> or <code>.jpg</code>), return an
+        <code>ImageAsset</code> object with a <code>kind: "image"</code> property and a <code>src</code>
+        string.
+      </li>
+      <li>
+        When called with a <code>string</code> file path ending in <code>.ogg</code> or <code>.mp3</code>, return a
+        <code>SoundAsset</code> object with a <code>kind: "sound"</code> property and a <code>src</code>
+        string. (Hint: you will need two overload signatures that both accept
+        <code>string</code> but differ in their return type. Use a template literal type or a runtime check on the extension.)
+      </li>
+      <li>
+        When called with a <code>{ urls: string[] }</code> config object, return a <code>SpriteSheet</code> object with a
+        <code>kind: "spritesheet"</code> property and a <code>frames</code> array.
+      </li>
+      <li>
+        Call <code>loadAsset</code> with each of the three argument shapes and confirm that TypeScript types each result correctly
+        without any manual casts.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> Three variables, each typed precisely as <code>ImageAsset</code>, <code>SoundAsset</code>, or
+      <code>SpriteSheet</code>, with no <code>as</code> keywords anywhere in your caller code.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE (optional)
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Generic Overloads with a Lookup Map</div>
+  <p>
+    Refactor your <code>loadAsset</code> function so that the return type is driven by a string-keyed type map rather than individual
+    overload signatures. Define a <code>AssetTypeMap</code> interface that maps file extension strings (<code>"png"</code>,
+    <code>"ogg"</code>, etc.) to their asset types, then write a single generic overload that looks up the correct return type from the
+    map using a template literal type. The resulting function should require zero overload signatures while still returning precise
+    types at every call site.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      Function overloads let you declare multiple call signatures for a single function so callers receive a precise return type based
+      on the arguments they pass.
+    </li>
+    <li>
+      You write two or more overload signatures (no body) followed by one implementation signature that handles all cases using union
+      types.
+    </li>
+    <li>
+      The implementation signature is hidden from callers; every valid call pattern must be covered by an explicit overload signature.
+    </li>
+    <li>
+      Inside the implementation body, narrow union-typed parameters with
+      <code>typeof</code>, <code>instanceof</code>, or discriminant properties before using them.
+    </li>
+    <li>
+      Prefer a simple union parameter when the return type does not change. Reach for overloads only when callers benefit from a more
+      precise return type.
+    </li>
   </ul>
 </section>

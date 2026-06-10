@@ -1,25 +1,350 @@
-<!-- Stub: Return Types — full content coming soon -->
+<!--
+  arrow-functions.html
+  =====================
+  Lesson: Typing Arrow Functions in TypeScript
+  Track:  TypeScript Fundamentals
+  Module: Functions
+  Slug:   arrow-functions
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Write arrow functions with explicit parameter and return type annotations</li>
+    <li>Understand how TypeScript infers return types from arrow function bodies</li>
+    <li>Type arrow functions stored in variables and passed as callbacks</li>
+    <li>Recognize when to use <code>void</code> vs <code>undefined</code> as a return type</li>
+    <li>Avoid the most common arrow function typing mistakes, including implicit <code>any</code> in callbacks</li>
   </ul>
 </section>
 
-<h2>Return Types</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  You have probably written dozens of arrow functions in JavaScript. They are concise, they handle <code>this</code> lexically, and
+  they read naturally in array methods like <code>.map()</code> and <code>.filter()</code>. But when you move to TypeScript, a question
+  immediately comes up: <em>where do the types go?</em>
+</p>
+
+<p>
+  Arrow functions in TypeScript follow a straightforward pattern, but there are a handful of places where the syntax trips people up:
+  annotating the variable that holds a function, typing callbacks, and choosing the right return type for functions that return
+  nothing. This lesson walks through all of it with clear, practical examples drawn from game development with ExcaliburJS.
+</p>
+
+<p>
+  By the end, you will be able to type any arrow function you encounter and understand exactly what TypeScript is inferring behind the
+  scenes.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>Arrow Function Syntax Refresher</h2>
+
+<p>Before adding types, here is a plain JavaScript arrow function that calculates a sprite's speed from its velocity components:</p>
+
+<pre><code class="language-typescript">
+// JavaScript — no types yet
+const getSpeed = (vx, vy) => Math.sqrt(vx * vx + vy * vy);
+</code></pre>
+
+<p>
+  In TypeScript, you annotate each parameter and, optionally, the return type. The return type annotation goes
+  <strong>after the closing parenthesis</strong>, before the arrow (<code>=&gt;</code>):
+</p>
+
+<pre><code class="language-typescript">
+// TypeScript — explicit parameter and return types
+const getSpeed = (vx: number, vy: number): number =>
+  Math.sqrt(vx * vx + vy * vy);
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      TypeScript can usually <em>infer</em> the return type from the function body, so the <code>: number</code> after the parentheses
+      is often optional. Being explicit is still recommended for public-facing functions because it documents intent and catches
+      mistakes early.
+    </p>
   </div>
 </div>
 
+<h3>Multi-Line Arrow Functions</h3>
+
+<p>
+  When the body needs multiple statements, wrap it in curly braces and use an explicit <code>return</code>. The type annotation
+  position stays the same:
+</p>
+
+<pre><code class="language-typescript">
+const clamp = (value: number, min: number, max: number): number => {
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+};
+
+// Usage in a game: keep a player's x position inside the screen bounds
+const boundedX = clamp(player.pos.x, 0, 800);
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      For concise single-expression functions, skip the curly braces and
+      <code>return</code>. TypeScript infers the return type from the expression. Reserve the block body form for functions with logic
+      branches or side effects.
+    </p>
+  </div>
+</div>
+
+<h2>Typing the Variable, Not Just the Parameters</h2>
+
+<p>
+  Sometimes you want to declare the <em>type of the function itself</em> on the variable, rather than annotating each parameter inline.
+  This is useful when you are storing a function to be assigned or swapped later:
+</p>
+
+<pre><code class="language-typescript">
+// Annotate the variable with a function type
+const getSpeed: (vx: number, vy: number) => number =
+  (vx, vy) => Math.sqrt(vx * vx + vy * vy);
+</code></pre>
+
+<p>
+  Notice that when the variable has a full type annotation, TypeScript can infer the parameter types inside the arrow function body, so
+  you do not have to repeat them. This pattern shows up frequently with callbacks:
+</p>
+
+<pre><code class="language-typescript">
+// The array type tells TypeScript what each element is,
+// so the callback parameter needs no annotation
+const speeds: number[] = [
+  { vx: 3, vy: 4 },
+  { vx: 1, vy: 1 },
+  { vx: 0, vy: 5 },
+].map((v) => Math.sqrt(v.vx * v.vx + v.vy * v.vy));
+//    ^^^  TypeScript already knows this is { vx: number; vy: number }
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      Type inference flows from context. If TypeScript knows what type a callback parameter should be (because the array or API tells
+      it), you do not need to annotate the parameter yourself. Let inference do the work.
+    </p>
+  </div>
+</div>
+
+<h2>Functions That Return Nothing: <code>void</code> vs <code>undefined</code></h2>
+
+<p>
+  Game update loops and event handlers often perform side effects and return nothing. TypeScript gives you two options for this, and
+  they are not identical:
+</p>
+
+<pre><code class="language-typescript">
+// void: this function is not expected to return a meaningful value
+const onPlayerHit = (damage: number): void => {
+  player.health -= damage;
+  playSoundEffect("hit");
+};
+
+// undefined: this function explicitly returns undefined
+const getNothing = (): undefined => {
+  return undefined;
+};
+</code></pre>
+
+<p>
+  In practice, use <code>void</code> for event handlers and callbacks that do not produce a value. A <code>void</code>-typed function
+  is allowed to return <code>undefined</code> implicitly (by not returning anything), but a function typed as returning
+  <code>undefined</code> must explicitly return <code>undefined</code>.
+</p>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Avoid annotating callbacks with <code>: undefined</code> when you mean <code>: void</code>. Libraries like ExcaliburJS pass
+      callbacks around internally, and a strict <code>undefined</code> return type can cause unexpected type errors when those
+      callbacks are composed together.
+    </p>
+  </div>
+</div>
+
+<h2>Typing Generic-Style Callbacks in Game Code</h2>
+
+<p>A common pattern in ExcaliburJS is passing arrow functions to scene event handlers. Here is how to type them correctly:</p>
+
+<pre><code class="language-typescript">
+import { Actor, CollisionStartEvent } from "excalibur";
+
+// Fully typed collision handler arrow function
+const onCollision = (evt: CollisionStartEvent): void => {
+  const other = evt.other;
+  console.log(`Collided with: ${other.name}`);
+};
+
+player.on("collisionstart", onCollision);
+</code></pre>
+
+<p>
+  You can also write this inline. TypeScript infers the event type from the <code>"collisionstart"</code> string literal, so the
+  annotation is optional there:
+</p>
+
+<pre><code class="language-typescript">
+// TypeScript infers evt: CollisionStartEvent from the overloaded on() signature
+player.on("collisionstart", (evt) => {
+  console.log(evt.other.name);
+});
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      When you hover over an inferred parameter in your editor, you can see exactly what type TypeScript resolved it to. This is a fast
+      way to confirm that inference is working and to discover the correct type name when you need to be explicit.
+    </p>
+  </div>
+</div>
+
+<h2>Avoiding Implicit <code>any</code> in Callbacks</h2>
+
+<p>
+  With <code>"strict": true</code> in your <code>tsconfig.json</code>, TypeScript will error if a parameter silently falls back to
+  <code>any</code>. This most often happens when you pass an arrow function to a method TypeScript cannot infer context from:
+</p>
+
+<pre><code class="language-typescript">
+// ERROR with strict mode: Parameter 'item' implicitly has an 'any' type
+const labels = someUnknownArray.map((item) => item.label);
+
+// FIX: annotate the parameter explicitly
+type Labeled = { label: string };
+const labels = (someUnknownArray as Labeled[]).map((item: Labeled) => item.label);
+
+// BETTER FIX: type the array at its declaration
+const items: Labeled[] = getItems();
+const labels = items.map((item) => item.label); // item is inferred as Labeled
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      The best place to add type information is at the source, not at the callback. If you type your arrays and variables correctly at
+      declaration, callbacks rarely need explicit parameter annotations.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Arrow Functions in a Game Loop</h2>
+
+<p>
+  The playground below sets up a minimal ExcaliburJS scene. The
+  <code>onPreUpdate</code> handler is an arrow function with typed parameters. Try adding your own typed arrow functions to move the
+  actor or log its position each frame.
+</p>
+
+<excalibur-playground label="Try It: Arrow Functions" height="500">
+  import { Engine, Actor, Color, vec } from "excalibur"; const game = new Engine({ width: 600, height: 400 }); const box = new Actor({
+  x: 300, y: 200, width: 40, height: 40, color: Color.Orange, }); // Typed arrow function: parameters come from Excalibur's update
+  signature const clamp = (value: number, min: number, max: number): number => { if (value < min) return min; if (value > max) return
+  max; return value; }; box.onPreUpdate = (_engine, deltaMs: number): void => { box.vel.x = 60; // pixels per second // Keep the box on
+  screen using our typed clamp arrow function box.pos.x = clamp(box.pos.x, 20, 580); }; game.add(box); game.start();
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Type a Suite of Game Utility Functions</div>
+  <div class="exercise__body">
+    <p>
+      Open a TypeScript file (or use the playground above) and write the following arrow functions with full, explicit type annotations
+      on both parameters and return types. Do not rely on inference for this exercise; the goal is to practice writing the syntax by
+      hand.
+    </p>
+    <ol>
+      <li><code>toDegrees</code>: takes a <code>radians</code> number and returns the equivalent value in degrees as a number.</li>
+      <li><code>toRadians</code>: the inverse of <code>toDegrees</code>.</li>
+      <li>
+        <code>lerp</code>: takes <code>start</code>, <code>end</code>, and <code>t</code> (all numbers) and returns
+        <code>start + (end - start) * t</code>. This is the linear interpolation formula used everywhere in game math.
+      </li>
+      <li>
+        <code>logPosition</code>: takes <code>x</code> and <code>y</code> numbers, logs them to the console, and returns nothing. Use
+        the correct TypeScript return type for a function with no meaningful return value.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript reports zero errors, each function has a clearly annotated signature, and calling
+      <code>lerp(0, 100, 0.5)</code> returns <code>50</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Build a Typed Easing Library</div>
+  <p>
+    Create a variable <code>easings</code> typed as <code>Record&lt;string, (t: number) =&gt; number&gt;</code>. Populate it with at
+    least three easing arrow functions: <code>linear</code>, <code>easeInQuad</code>, and <code>easeOutQuad</code>. Then write a
+    <code>applyEasing</code> arrow function that accepts a key name and a <code>t</code> value, looks up the correct function from
+    <code>easings</code>, and returns the result. All functions must be fully typed with no <code>any</code>.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      Parameter types go inside the parentheses (<code>x: number</code>); the return type goes after the closing parenthesis, before
+      the arrow (<code>): number =&gt;</code>).
+    </li>
+    <li>
+      You can annotate the variable holding the function instead of each parameter:
+      <code>const f: (x: number) =&gt; number = (x) =&gt; x * 2</code>.
+    </li>
+    <li>
+      TypeScript infers callback parameter types from context, such as the element type of the array being mapped. Let it do so rather
+      than repeating annotations unnecessarily.
+    </li>
+    <li>
+      Use <code>void</code> as the return type for event handlers and side-effect functions. Reserve <code>undefined</code> only when
+      the function must explicitly return <code>undefined</code>.
+    </li>
+    <li>
+      With <code>strict</code> mode enabled, TypeScript will catch implicit <code>any</code> in callback parameters. The fix is usually
+      to type the source data structure, not the callback itself.
+    </li>
   </ul>
 </section>

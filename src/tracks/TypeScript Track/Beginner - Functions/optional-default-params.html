@@ -1,25 +1,348 @@
-<!-- Stub: Optional Parameters — full content coming soon -->
+<!--
+  optional-and-default-parameters.html
+  ======================================
+  Lesson: Optional and Default Parameters in TypeScript
+  Track:  TypeScript Fundamentals
+  Module: Functions
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Understand what optional parameters are and how to declare them with <code>?</code></li>
+    <li>Write functions that use default parameter values to reduce repetitive call-site code</li>
+    <li>Distinguish when to choose an optional parameter versus a default parameter</li>
+    <li>Identify the rule that optional and default parameters must come after required ones</li>
+    <li>Apply both features in a game-context function using ExcaliburJS</li>
   </ul>
 </section>
 
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you are writing a function that spawns an enemy in a game. Most of the time you want a standard enemy with 100 health and no
+  special color tint. But sometimes you need a boss with 500 health and a red tint, or a fast scout with 50 health and no tint at all.
+  If you forced callers to supply every single argument every time, the call sites would be noisy and error-prone.
+</p>
+
+<p>
+  TypeScript solves this with two complementary features: <strong>optional parameters</strong>, which the caller can simply omit, and
+  <strong>default parameters</strong>, which fall back to a value you choose when nothing is passed. Together they let you write
+  flexible, self-documenting functions without overloading or awkward <code>undefined</code>
+  checks scattered everywhere.
+</p>
+
+<p>
+  In this lesson you will learn both features, understand the tradeoffs between them, and see them put to work in a small Excalibur
+  playground.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 1: OPTIONAL PARAMETERS
+     ═══════════════════════════════════════════════ -->
 <h2>Optional Parameters</h2>
-<p>This lesson is under construction. Check back soon!</p>
+
+<p>
+  Mark a parameter as optional by placing a <code>?</code> immediately after its name, before the type annotation. TypeScript will then
+  allow callers to omit that argument. Inside the function body, the parameter's type becomes a union with <code>undefined</code>, so
+  you must handle both cases.
+</p>
+
+<pre><code class="language-typescript">
+// The second parameter is optional
+function greetPlayer(name: string, title?: string): string {
+  if (title) {
+    return `Welcome, ${title} ${name}!`;
+  }
+  return `Welcome, ${name}!`;
+}
+
+greetPlayer("Ada");            // "Welcome, Ada!"
+greetPlayer("Ada", "Captain"); // "Welcome, Captain Ada!"
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      When <code>title</code> is omitted, its value inside the function is <code>undefined</code>, not an empty string or zero. Always
+      guard against that before using it.
+    </p>
   </div>
 </div>
 
+<h3>The Ordering Rule</h3>
+
+<p>
+  Optional parameters must come <em>after</em> all required parameters. Placing one before a required parameter is a TypeScript compile
+  error, because there would be no unambiguous way to know which argument the caller intended to skip.
+</p>
+
+<pre><code class="language-typescript">
+// WRONG: optional before required
+function badOrder(label?: string, value: number): void { /* ... */ }
+//                                ^^^^^^ Error: Required parameter cannot follow optional
+
+// CORRECT: required first, optional last
+function goodOrder(value: number, label?: string): void {
+  console.log(label ?? "unlabeled", value);
+}
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>This ordering rule applies equally to optional parameters and default parameters. Both must trail all required parameters.</p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2: DEFAULT PARAMETERS
+     ═══════════════════════════════════════════════ -->
+<h2>Default Parameters</h2>
+
+<p>
+  A default parameter goes one step further: instead of becoming <code>undefined</code>
+  when omitted, it takes on a value you specify at the function signature. Use
+  <code>= value</code> after the type annotation (or after the parameter name when TypeScript can infer the type).
+</p>
+
+<pre><code class="language-typescript">
+function spawnEnemy(x: number, y: number, health: number = 100): void {
+  console.log(`Spawning enemy at (${x}, ${y}) with ${health} HP`);
+}
+
+spawnEnemy(0, 0);         // health = 100  (default applied)
+spawnEnemy(200, 300, 50); // health = 50   (caller overrides)
+</code></pre>
+
+<p>
+  Notice that the type annotation for <code>health</code> is optional here because TypeScript infers <code>number</code> from the
+  literal <code>100</code>. You can include it explicitly for clarity, which is often a good idea in a codebase that values
+  readability.
+</p>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Default parameter values can be any expression, not just literals. You can call a function, read a constant, or perform
+      arithmetic:
+      <code>timeout: number = Date.now()</code>. The expression is evaluated at call time, not at function definition time.
+    </p>
+  </div>
+</div>
+
+<h3>Passing <code>undefined</code> to Trigger a Default</h3>
+
+<p>
+  You can explicitly pass <code>undefined</code> for a defaulted parameter to force the default to apply, even when supplying later
+  arguments. This is especially useful when a parameter sits in the middle of a list.
+</p>
+
+<pre><code class="language-typescript">
+function createActor(
+  name: string,
+  health: number = 100,
+  speed: number = 60
+): string {
+  return `${name} | HP: ${health} | SPD: ${speed}`;
+}
+
+// Skip health, set speed to 200
+createActor("Scout", undefined, 200);
+// "Scout | HP: 100 | SPD: 200"
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      Passing <code>undefined</code> triggers the default. Passing <code>null</code> does <em>not</em>. <code>null</code> is a
+      deliberate "no value" and will be assigned as-is, which can cause type errors if the parameter type does not include
+      <code>null</code>.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3: OPTIONAL VS DEFAULT
+     ═══════════════════════════════════════════════ -->
+<h2>Choosing Between Optional and Default</h2>
+
+<p>
+  Both features let callers omit an argument, but they communicate different intentions and produce different types inside the
+  function.
+</p>
+
+<pre><code class="language-typescript">
+// Optional: type is string | undefined inside the function
+function labelA(text?: string): void {
+  // text might be undefined here -- you must check
+  const safe = text ?? "(none)";
+  console.log(safe);
+}
+
+// Default: type is string inside the function (never undefined)
+function labelB(text: string = "(none)"): void {
+  // text is always a string -- no check needed
+  console.log(text);
+}
+</code></pre>
+
+<p>
+  Use an <strong>optional parameter</strong> when the absence of the argument is meaningful and you want to handle the two cases
+  differently. Use a <strong>default parameter</strong> when there is a sensible fallback value and you want the function body to work
+  uniformly regardless of whether the caller supplied it.
+</p>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      In practice, default parameters are more common because they keep the function body cleaner. Reach for optional parameters when
+      you genuinely need to branch on whether the caller provided the argument at all.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The playground below defines a <code>spawnActor</code> function that uses both optional and default parameters to configure a colored
+  rectangle on screen. Experiment with the call at the bottom: try omitting arguments, passing <code>undefined</code>, and overriding
+  individual values to see the results.
+</p>
+
+<excalibur-playground label="Try It: Optional and Default Parameters" height="520">
+  <script type="text/excalibur">
+    import { Engine, Actor, Color, vec } from "excalibur";
+
+    const game = new Engine({ width: 600, height: 400 });
+
+    // health and color both have defaults; label is optional
+    function spawnActor(
+      x: number,
+      y: number,
+      health: number = 100,
+      color: Color = Color.Green,
+      label?: string
+    ): Actor {
+      const actor = new Actor({
+        pos: vec(x, y),
+        width: 60,
+        height: 60,
+        color,
+      });
+
+      console.log(
+        `Spawned "${label ?? "unnamed"}" at (${x}, ${y}) with ${health} HP`
+      );
+
+      return actor;
+    }
+
+    game.start().then(() => {
+      // Default health and color, no label
+      const basic = spawnActor(150, 200);
+      game.add(basic);
+
+      // Custom health, custom color, with label
+      const boss = spawnActor(400, 200, 500, Color.Red, "Boss");
+      game.add(boss);
+
+      // Override only color by passing undefined for health
+      const ghost = spawnActor(275, 100, undefined, Color.Violet, "Ghost");
+      game.add(ghost);
+    });
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Design a Weapon Factory Function</div>
+  <div class="exercise__body">
+    <p>
+      Write a function called <code>createWeapon</code> that represents a weapon in a game. It should be flexible enough to describe a
+      default sword as well as a custom legendary bow.
+    </p>
+    <ol>
+      <li>Define the function with a required <code>name: string</code> parameter.</li>
+      <li>Add a <code>damage</code> parameter that defaults to <code>10</code>.</li>
+      <li>
+        Add an optional <code>element</code> parameter of type <code>string</code> (e.g., <code>"fire"</code>, <code>"ice"</code>).
+      </li>
+      <li>
+        Inside the function, return a description string. If <code>element</code>
+        is provided, include it; otherwise omit it.
+      </li>
+      <li>
+        Call the function three times: once with only a name, once with a name and damage, and once with all three arguments. Log each
+        result.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> Three console log lines resembling <code>"Sword (10 dmg)"</code>, <code>"Axe (25 dmg)"</code>,
+      and <code>"Staff (30 dmg, fire)"</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Computed Defaults from Other Parameters</div>
+  <p>
+    TypeScript does not allow one parameter's default to reference another parameter directly in the function signature. Work around
+    this by making both parameters optional inside the body, then compute the dependent default manually.
+  </p>
+  <p>
+    Write a function <code>spawnProjectile</code> that accepts a starting <code>x</code>, a starting <code>y</code>, and an optional
+    <code>targetX</code> that defaults to <code>x + 200</code> when not provided. Log the full trajectory. Confirm that
+    <code>spawnProjectile(100, 50)</code> targets x = 300, while <code>spawnProjectile(100, 50, 600)</code> targets x = 600.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      Add <code>?</code> after a parameter name to make it optional; its type becomes <code>T | undefined</code> inside the function
+      body.
+    </li>
+    <li>
+      Use <code>= value</code> to give a parameter a default; the type remains <code>T</code> (never <code>undefined</code>), keeping
+      the body simpler.
+    </li>
+    <li>
+      Both optional and default parameters must be declared after all required parameters, or TypeScript will report a compile error.
+    </li>
+    <li>Passing <code>undefined</code> explicitly triggers a default; passing <code>null</code> does not.</li>
+    <li>
+      Prefer default parameters when a sensible fallback exists; prefer optional parameters when the absence of an argument needs
+      distinct handling.
+    </li>
   </ul>
 </section>
