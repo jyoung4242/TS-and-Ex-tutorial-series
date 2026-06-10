@@ -1,25 +1,454 @@
-<!-- Stub: Return Types — full content coming soon -->
+<!--
+  rest-parameters-and-spread.html
+  =================================
+  Track:   TypeScript Fundamentals
+  Module:  Functions
+  Lesson:  Rest Parameters & Spread
+
+  Content only — no <html>, <head>, or <body> tags.
+  Injected into <lesson-view> by lesson-view.js.
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Declare rest parameters with correct TypeScript array type annotations</li>
+    <li>Distinguish when to use a rest parameter versus a plain array parameter</li>
+    <li>Use the spread operator to pass arrays as individual arguments to typed functions</li>
+    <li>Combine rest parameters and spread syntax in game-development scenarios like event broadcasting and batch entity spawning</li>
+    <li>Avoid common typing mistakes that arise when rest and spread interact with tuple types</li>
   </ul>
 </section>
 
-<h2>Return Types</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you are writing a function that damages several enemies at once after an explosion. You do not know ahead of time how many
+  enemies are caught in the blast radius. You could accept an array, but that forces every call site to wrap its arguments in brackets.
+  Or you could write a dozen overloads. Neither feels right.
+</p>
+
+<p>
+  Rest parameters solve this cleanly. They let a function accept any number of individual arguments and collect them into a typed array
+  automatically. The companion feature, the spread operator, goes in the other direction: it unpacks an existing array so each element
+  is passed as its own argument. Together they cover the full round-trip between discrete values and collections, and TypeScript types
+  both sides precisely.
+</p>
+
+<p>
+  In Excalibur, you will see this pattern constantly: engine event systems forward variable argument lists, actor constructors accept
+  spread config properties, and utility helpers merge component arrays. Understanding rest and spread at the type level makes those
+  APIs feel natural rather than mysterious.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>Rest Parameters</h2>
+
+<p>
+  A rest parameter is written as the final parameter of a function, prefixed with <code>...</code>. TypeScript types it as an array of
+  whatever element type you declare.
+</p>
+
+<pre><code class="language-typescript">// Without rest — callers must build an array manually
+function damageEnemies(enemies: string[]): void {
+  for (const enemy of enemies) {
+    console.log(`${enemy} takes damage!`);
+  }
+}
+
+damageEnemies(["Goblin", "Orc", "Troll"]); // array literal required
+
+
+// With rest — each enemy is a separate argument
+function damageEnemiesRest(...enemies: string[]): void {
+  for (const enemy of enemies) {
+    console.log(`${enemy} takes damage!`);
+  }
+}
+
+damageEnemiesRest("Goblin", "Orc", "Troll"); // natural call site
+damageEnemiesRest("Boss");                   // one argument also works
+damageEnemiesRest();                         // zero arguments also works
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      TypeScript infers the rest parameter type as <code>string[]</code> here. Inside the function body, <code>enemies</code> is a
+      perfectly ordinary array — you can call <code>.map</code>, <code>.filter</code>, or any other array method on it.
+    </p>
   </div>
 </div>
 
+<h3>Rest Must Come Last</h3>
+
+<p>
+  A rest parameter collects everything from its position onward, so it must be the final parameter in the list. TypeScript enforces
+  this at compile time.
+</p>
+
+<pre><code class="language-typescript">// Correct: required parameters come first, rest comes last
+function spawnWave(
+  waveName: string,
+  difficulty: number,
+  ...enemyTypes: string[]
+): void {
+  console.log(`Wave: ${waveName} | Difficulty: ${difficulty}`);
+  enemyTypes.forEach(type => console.log(`  Spawning: ${type}`));
+}
+
+spawnWave("Midnight Raid", 3, "Skeleton", "Zombie", "Wraith");
+
+// TypeScript error — rest is not last
+// function broken(...names: string[], count: number) {} // TS2014
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      A function can only have <strong>one</strong> rest parameter, and it must be the very last parameter. Trying to add a required
+      parameter after a rest parameter is a TypeScript error (<code>TS2014</code>).
+    </p>
+  </div>
+</div>
+
+<h3>Typing Rest Parameters with Union Types</h3>
+
+<p>
+  The element type of a rest parameter can be any valid TypeScript type, including unions. This is useful when your game engine needs
+  to accept mixed payloads.
+</p>
+
+<pre><code class="language-typescript">type GameEvent = "spawn" | "destroy" | "pause" | "resume";
+
+function broadcastEvents(...events: GameEvent[]): void {
+  events.forEach(event => {
+    console.log(`Broadcasting: ${event}`);
+  });
+}
+
+broadcastEvents("spawn", "pause");           // valid
+broadcastEvents("destroy", "resume", "spawn"); // valid
+
+// TypeScript error — "reload" is not a GameEvent
+// broadcastEvents("spawn", "reload");       // TS2345
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Typing the rest parameter with a string union instead of plain
+      <code>string</code> turns every call site into a compile-time check. Mistyped event names become errors before you ever run the
+      game.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SPREAD SYNTAX
+     ═══════════════════════════════════════════════ -->
+<h2>The Spread Operator</h2>
+
+<p>
+  The spread operator (<code>...</code>) unpacks an iterable, such as an array, into individual elements at a call site. It is the
+  natural counterpart to a rest parameter.
+</p>
+
+<pre><code class="language-typescript">function applyBuffs(actor: string, ...buffs: string[]): void {
+  console.log(`${actor} gains: ${buffs.join(", ")}`);
+}
+
+const heroeBuffs: string[] = ["Haste", "Shield", "Regeneration"];
+
+// Without spread — TypeScript error because applyBuffs expects separate args
+// applyBuffs("Hero", heroeBuffs); // TS2345
+
+// With spread — array is unpacked into individual arguments
+applyBuffs("Hero", ...heroeBuffs);
+// Output: Hero gains: Haste, Shield, Regeneration
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      Rest collects: it gathers individual arguments into an array inside the function. Spread expands: it unpacks an array into
+      individual arguments at the call site. They are inverses of each other.
+    </p>
+  </div>
+</div>
+
+<h3>Spreading into Non-Rest Functions</h3>
+
+<p>
+  You can spread an array into any function, not just ones with rest parameters, as long as the types align. TypeScript checks each
+  spread element against the corresponding parameter.
+</p>
+
+<pre><code class="language-typescript">function createActor(x: number, y: number, label: string): string {
+  return `Actor "${label}" at (${x}, ${y})`;
+}
+
+const position: [number, number, string] = [100, 200, "Player"];
+
+// Spread a tuple directly into the function
+console.log(createActor(...position));
+// Output: Actor "Player" at (100, 200)
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      TypeScript can verify spread calls into fixed-parameter functions when the source is typed as a <strong>tuple</strong> (a
+      fixed-length typed array like <code>[number, number, string]</code>). If the source is typed as a plain array like
+      <code>number[]</code>, TypeScript cannot guarantee the length matches, and you may see an error.
+    </p>
+  </div>
+</div>
+
+<h3>Spread with Arrays and Merge Patterns</h3>
+
+<p>
+  Spread is also heavily used outside of function calls to build new arrays from existing ones. In a game, you might merge actor lists,
+  combine effect queues, or extend config objects.
+</p>
+
+<pre><code class="language-typescript">const groundEnemies: string[] = ["Goblin", "Skeleton"];
+const airEnemies: string[]   = ["Bat", "Harpy"];
+const bossEnemies: string[]  = ["Dragon"];
+
+// Merge into a new wave without mutating either source array
+const fullWave: string[] = [...groundEnemies, ...airEnemies, ...bossEnemies];
+
+console.log(fullWave);
+// ["Goblin", "Skeleton", "Bat", "Harpy", "Dragon"]
+
+// Spread also works for object literals (useful for Excalibur config merging)
+const defaultConfig = { speed: 100, health: 50, visible: true };
+const bossConfig    = { ...defaultConfig, health: 500, name: "Dragon" };
+
+console.log(bossConfig);
+// { speed: 100, health: 500, visible: true, name: "Dragon" }
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      When spreading objects, later properties override earlier ones. In the example above, <code>bossConfig.health</code> is
+      <code>500</code>, not <code>50</code>, because the second spread property wins. This makes spread a clean pattern for applying
+      default values with targeted overrides.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     TUPLE TYPES AND REST
+     ═══════════════════════════════════════════════ -->
+<h2>Tuples, Rest, and Spread Together</h2>
+
+<p>
+  TypeScript supports rest elements inside tuple types. This is an advanced but practical pattern when you want to describe a typed
+  list that has a known prefix followed by a variable tail.
+</p>
+
+<pre><code class="language-typescript">// A tuple: first element is a string label, rest are numbers (scores)
+type ScoredRound = [label: string, ...scores: number[]];
+
+function summarizeRound(label: string, ...scores: number[]): string {
+  const total = scores.reduce((sum, s) => sum + s, 0);
+  return `${label}: ${scores.length} events, total score ${total}`;
+}
+
+const roundData: ScoredRound = ["Wave 3", 120, 85, 200, 60];
+
+// Spread the tuple directly into the matching function signature
+console.log(summarizeRound(...roundData));
+// Output: Wave 3: 4 events, total score 465
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      If <code>roundData</code> were typed as <code>(string | number)[]</code> instead of the tuple <code>ScoredRound</code>,
+      TypeScript would reject the spread into <code>summarizeRound</code> because it cannot confirm the first element is a string.
+      Always use a tuple type when you need to spread a mixed array into a function with heterogeneous parameters.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The snippet below simulates a game scene initializer. The
+  <code>initScene</code> function uses a rest parameter to accept any number of actor names, then logs what would be spawned. Try
+  adding or removing actor names at the call site, or spread an array of names in place of individual arguments.
+</p>
+
+<excalibur-playground label="Try It: Rest Parameters and Spread in a Game Scene" height="520">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    // ---------------------------------------------------
+    // Utility: rest parameter collects actor labels
+    // ---------------------------------------------------
+    function initScene(sceneName: string, ...actorLabels: string[]): void {
+      console.log(`\n=== Initializing scene: ${sceneName} ===`);
+      if (actorLabels.length === 0) {
+        console.log("  (no actors registered)");
+        return;
+      }
+      actorLabels.forEach((label, i) => {
+        console.log(`  [${i + 1}] Spawning actor: ${label}`);
+      });
+      console.log(`  Total actors: ${actorLabels.length}`);
+    }
+
+    // Direct call with individual arguments
+    initScene("Level 1", "Player", "Goblin", "Goblin", "Chest");
+
+    // Store actors in an array, then spread into the same function
+    const bossRoomActors: string[] = ["Player", "Dragon", "Altar", "Gate"];
+    initScene("Boss Room", ...bossRoomActors);
+
+    // Merge two actor lists before spreading
+    const patrolActors: string[] = ["Guard A", "Guard B"];
+    const ambientActors: string[] = ["Torch", "Merchant"];
+    initScene("Town Square", ...patrolActors, ...ambientActors);
+
+    // Minimal Excalibur scene to anchor the code
+    const game = new ex.Engine({ width: 400, height: 300, displayMode: ex.DisplayMode.FitScreen });
+
+    const player = new ex.Actor({ x: 200, y: 150, width: 32, height: 32, color: ex.Color.Green });
+    game.add(player);
+
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Score Logger with Rest and Spread</div>
+  <div class="exercise__body">
+    <p>
+      You are building a scoring system for a wave-based game. Follow the steps below to practice rest parameters and spread syntax
+      with correct TypeScript annotations throughout.
+    </p>
+    <ol>
+      <li>
+        Write a function <code>logScores</code> that accepts a <code>playerName: string</code> as its first parameter and a rest
+        parameter <code>...roundScores: number[]</code>.
+      </li>
+      <li>
+        Inside the function, calculate the total using
+        <code>roundScores.reduce</code> and log both the individual scores and the total to the console.
+      </li>
+      <li>Call <code>logScores</code> directly with three separate number arguments.</li>
+      <li>
+        Create a <code>const previousRound: number[]</code> array with at least four scores. Call <code>logScores</code> a second time
+        using the spread operator to unpack that array.
+      </li>
+      <li>
+        Add a second function <code>combineWaves</code> that accepts two <code>number[]</code> arrays and returns a merged array using
+        spread. Verify the return type is inferred correctly by hovering over the function in your editor.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> Both calls to <code>logScores</code> produce the correct total.
+      <code>combineWaves</code> returns a single flat array with all scores from both input arrays. TypeScript raises no errors in
+      strict mode.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Typed Event Relay System</div>
+  <p>Design a small event relay for an Excalibur scene using rest parameters and tuple types together. Your relay should:</p>
+  <ul>
+    <li>
+      Define a union type <code>SceneEvent</code> covering at least five named game events (e.g., <code>"actorSpawned"</code>,
+      <code>"collisionResolved"</code>, <code>"waveClear"</code>).
+    </li>
+    <li>
+      Write a <code>relay</code> function that accepts a <code>timestamp: number</code> followed by a rest parameter typed as
+      <code>...events: SceneEvent[]</code>, and logs each event with the timestamp prefix.
+    </li>
+    <li>
+      Define a tuple type <code>RelayPayload</code> as <code>[timestamp: number, ...events: SceneEvent[]]</code> and store a valid
+      payload in a <code>const</code> of that type.
+    </li>
+    <li>
+      Call <code>relay</code> by spreading the tuple directly. Confirm that TypeScript accepts the spread and that the output is
+      correct.
+    </li>
+    <li>
+      Verify what happens when you deliberately put a string outside the union into the tuple. Explain in a comment why TypeScript
+      catches the error at the tuple assignment rather than at the call site.
+    </li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span>
+        Rest parameters (<code>...name: T[]</code>) allow a function to accept an indefinite number of arguments as an array, with the
+        element type specified by the annotation.
+      </span>
+    </li>
+    <li>
+      <span>
+        The spread operator (<code>...array</code>) unpacks an array into individual arguments at a call site, and TypeScript verifies
+        the types match the target function's parameters.
+      </span>
+    </li>
+    <li>
+      To spread a mixed array into a function with heterogeneous parameters, type the source as a tuple so TypeScript can confirm each
+      positional type.
+    </li>
+    <li>
+      Spread works on both arrays and object literals; later properties override earlier ones when spreading objects, making it a clean
+      pattern for applying defaults with overrides.
+    </li>
+    <li>
+      <span>
+        TypeScript's tuple rest element syntax (<code>[T, ...U[]]</code>) lets you describe and safely pass structured variadic data
+        across API boundaries, such as Excalibur event payloads and scene initializers.
+      </span>
+    </li>
   </ul>
 </section>

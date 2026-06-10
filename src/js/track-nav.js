@@ -9,7 +9,7 @@ import { router } from "./router.js";
 export class TrackNav extends HTMLElement {
   connectedCallback() {
     this._render();
-    router.onChange((route) => this._updateActive(route));
+    router.onChange(route => this._updateActive(route));
   }
 
   _render() {
@@ -20,7 +20,7 @@ export class TrackNav extends HTMLElement {
         <div class="track-nav__tabs">
           ${tracks
             .map(
-              (t) => `
+              t => `
             <button
               class="track-nav__tab"
               data-track="${t.id}"
@@ -29,14 +29,14 @@ export class TrackNav extends HTMLElement {
               <span class="track-nav__icon">${t.icon}</span>
               <span class="track-nav__title">${t.title}</span>
             </button>
-          `
+          `,
             )
             .join("")}
         </div>
       </nav>
     `;
 
-    this.querySelectorAll(".track-nav__tab").forEach((btn) => {
+    this.querySelectorAll(".track-nav__tab").forEach(btn => {
       btn.addEventListener("click", () => {
         const track = curriculumService.getTrack(btn.dataset.track);
         if (track) router.navigateToTrack(track);
@@ -49,11 +49,8 @@ export class TrackNav extends HTMLElement {
   }
 
   _updateActive(route) {
-    this.querySelectorAll(".track-nav__tab").forEach((btn) => {
-      btn.classList.toggle(
-        "track-nav__tab--active",
-        btn.dataset.track === route?.trackId
-      );
+    this.querySelectorAll(".track-nav__tab").forEach(btn => {
+      btn.classList.toggle("track-nav__tab--active", btn.dataset.track === route?.trackId);
     });
 
     // Dispatch so module-nav knows to update
@@ -61,7 +58,7 @@ export class TrackNav extends HTMLElement {
       new CustomEvent("track:selected", {
         bubbles: true,
         detail: { trackId: route?.trackId },
-      })
+      }),
     );
   }
 }

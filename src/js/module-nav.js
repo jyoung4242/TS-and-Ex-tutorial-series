@@ -87,7 +87,9 @@ export class ModuleNav extends HTMLElement {
                         <span class="module-nav__check" aria-label="${complete ? "Completed" : "Not completed"}">
                           ${complete ? "✓" : "○"}
                         </span>
-                        <span class="module-nav__lesson-title">${lesson.title}</span>
+                        <span class="module-nav__lesson-title" title="${lesson.title}">
+                          ${lesson.title}
+                        </span>
                         <span class="module-nav__duration">${lesson.duration}</span>
                       </a>
                     </li>

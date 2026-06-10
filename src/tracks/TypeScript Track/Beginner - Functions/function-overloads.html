@@ -351,8 +351,10 @@ const snd = getAsset("bgm"); // SoundSource
       The implementation signature is hidden from callers; every valid call pattern must be covered by an explicit overload signature.
     </li>
     <li>
-      Inside the implementation body, narrow union-typed parameters with
-      <code>typeof</code>, <code>instanceof</code>, or discriminant properties before using them.
+      <span>
+        Inside the implementation body, narrow union-typed parameters with
+        <code>typeof</code>, <code>instanceof</code>, or discriminant properties before using them.
+      </span>
     </li>
     <li>
       Prefer a simple union parameter when the return type does not change. Reach for overloads only when callers benefit from a more

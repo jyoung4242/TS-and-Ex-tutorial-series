@@ -327,8 +327,10 @@ const labels = items.map((item) => item.label); // item is inferred as Labeled
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
     <li>
-      Parameter types go inside the parentheses (<code>x: number</code>); the return type goes after the closing parenthesis, before
-      the arrow (<code>): number =&gt;</code>).
+      <span>
+        Parameter types go inside the parentheses (<code>x: number</code>); the return type goes after the closing parenthesis, before
+        the arrow (<code>): number =&gt;</code>).
+      </span>
     </li>
     <li>
       You can annotate the variable holding the function instead of each parameter:
@@ -339,12 +341,16 @@ const labels = items.map((item) => item.label); // item is inferred as Labeled
       than repeating annotations unnecessarily.
     </li>
     <li>
-      Use <code>void</code> as the return type for event handlers and side-effect functions. Reserve <code>undefined</code> only when
-      the function must explicitly return <code>undefined</code>.
+      <span>
+        Use <code>void</code> as the return type for event handlers and side-effect functions. Reserve <code>undefined</code> only when
+        the function must explicitly return <code>undefined</code>.
+      </span>
     </li>
     <li>
-      With <code>strict</code> mode enabled, TypeScript will catch implicit <code>any</code> in callback parameters. The fix is usually
-      to type the source data structure, not the callback itself.
+      <span>
+        With <code>strict</code> mode enabled, TypeScript will catch implicit <code>any</code> in callback parameters. The fix is
+        usually to type the source data structure, not the callback itself.
+      </span>
     </li>
   </ul>
 </section>

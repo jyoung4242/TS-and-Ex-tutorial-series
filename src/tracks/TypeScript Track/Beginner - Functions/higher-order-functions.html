@@ -1,25 +1,468 @@
-<!-- Stub: Return Types — full content coming soon -->
+<!--
+  higher-order-functions.html
+  ============================
+  Track:  typescript-fundamentals
+  Module: functions
+  Lesson: higher-order-functions
+  Slug:   higher-order-functions
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Define a higher-order function and explain why TypeScript requires explicit type annotations for callback parameters</li>
+    <li>Write functions that accept typed callbacks and return typed functions</li>
+    <li>Annotate common array methods (<code>map</code>, <code>filter</code>, <code>reduce</code>) with precise TypeScript types</li>
+    <li>Recognise the callback signatures used by Excalibur's event system and match them with the patterns from this lesson</li>
+    <li>Avoid the <code>Function</code> type anti-pattern by using explicit call signatures instead</li>
   </ul>
 </section>
 
-<h2>Return Types</h2>
-<p>This lesson is under construction. Check back soon!</p>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you are writing an enemy spawner. At the moment an enemy is destroyed
+  you want to play a sound, update the score, and maybe spawn a power-up. Those
+  three actions are different every time you call the spawner, but the spawner
+  itself never changes. The answer is to pass behavior in as a parameter, which
+  is exactly what higher-order functions let you do.
+</p>
+
+<p>
+  A <strong>higher-order function</strong> is any function that either accepts
+  another function as an argument, returns a function, or both. JavaScript has
+  always supported this. TypeScript adds the ability to describe, and enforce,
+  the exact shape of those callback functions so the compiler catches mismatches
+  before they become runtime bugs.
+</p>
+
+<p>
+  This lesson builds directly on everything you already know about function
+  annotations, optional parameters, and overloads. By the end you will be
+  writing the kind of event-handler wiring that appears throughout Excalibur's
+  API.
+</p>
+
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>What Makes a Function "Higher-Order"?</h2>
+
+<p>
+  A function is higher-order when it treats other functions as values. That
+  means at least one of the following is true:
+</p>
+
+<ul>
+  <li>Its parameter list includes a function type</li>
+  <li>Its return type is a function type</li>
+</ul>
+
+<pre><code class="language-typescript">// Accepts a callback — higher-order
+function onEnemyDestroyed(callback: () => void): void {
+  // ... internal logic ...
+  callback();
+}
+
+// Returns a function — also higher-order
+function createMultiplier(factor: number): (value: number) => number {
+  return (value) => value * factor;
+}
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      The term "higher-order" comes from mathematics and functional programming.
+      You do not need to use that label in your code. What matters is knowing
+      how to type the pattern correctly.
+    </p>
   </div>
 </div>
 
+
+<h2>Typing Callback Parameters</h2>
+
+<p>
+  The most common pattern is a function that receives a callback. You describe
+  the callback's shape using an inline call signature: a parameter list in
+  parentheses followed by a return type.
+</p>
+
+<pre><code class="language-typescript">// Call signature syntax: (paramName: ParamType) => ReturnType
+function runAfterDelay(ms: number, callback: () => void): void {
+  setTimeout(callback, ms);
+}
+
+// Callbacks can receive arguments too
+function onScoreChange(callback: (newScore: number) => void): void {
+  // ... internal logic updates the score ...
+  const updated = 42;
+  callback(updated);
+}
+</code></pre>
+
+<p>
+  When you call <code>onScoreChange</code>, TypeScript already knows the
+  callback will receive a <code>number</code>. You do not have to re-annotate
+  the parameter inside the arrow function you pass in.
+</p>
+
+<pre><code class="language-typescript">// TypeScript infers that `score` is number — no annotation needed here
+onScoreChange((score) => {
+  console.log(`Score updated to ${score}`);
+});
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      This inference is called <strong>contextual typing</strong>. TypeScript
+      reads the expected callback signature from the function you are calling
+      and uses it to type the parameters of the arrow function you write inline.
+      You will see this constantly when working with array methods and Excalibur
+      event handlers.
+    </p>
+  </div>
+</div>
+
+
+<h3>The <code>Function</code> Type Anti-Pattern</h3>
+
+<p>
+  TypeScript has a built-in type called <code>Function</code> (capital F). It
+  accepts any callable value but tells you nothing about its parameters or
+  return type. Avoid it.
+</p>
+
+<pre><code class="language-typescript">// Bad — TypeScript cannot check anything about this callback
+function runCallback(fn: Function): void {
+  fn(1, 2, 3); // no errors, even if fn expects no arguments
+}
+
+// Good — the shape is explicit and checked
+function runCallback(fn: (a: number, b: number) => number): void {
+  const result = fn(1, 2); // TypeScript verifies both the call and the return
+  console.log(result);
+}
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Using <code>Function</code> silences the compiler on the entire callback.
+      Mistakes in argument count and types will only surface at runtime. Always
+      write an explicit call signature.
+    </p>
+  </div>
+</div>
+
+
+<h2>Type Aliases for Callback Shapes</h2>
+
+<p>
+  When the same callback signature appears in multiple places, a type alias
+  keeps things readable and consistent.
+</p>
+
+<pre><code class="language-typescript">// Define once
+type CollisionHandler = (target: string, damage: number) => void;
+
+// Reuse wherever needed
+function onPlayerCollision(handler: CollisionHandler): void {
+  const target = "spike-trap";
+  const damage = 10;
+  handler(target, damage);
+}
+
+function onEnemyCollision(handler: CollisionHandler): void {
+  const target = "player";
+  const damage = 25;
+  handler(target, damage);
+}
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Excalibur defines named types for its own event payloads (for example
+      <code>CollisionEndEvent</code>, <code>KillEvent</code>). When you write
+      <code>actor.on("kill", (evt) =&gt; ...)</code>, contextual typing uses
+      those definitions to type <code>evt</code> automatically.
+    </p>
+  </div>
+</div>
+
+
+<h2>Returning Functions</h2>
+
+<p>
+  A higher-order function can also produce a function as its result. This is
+  useful for creating specialised variants of a general behaviour, a pattern
+  sometimes called a <strong>factory</strong> or <strong>closure</strong>.
+</p>
+
+<pre><code class="language-typescript">// Returns a configured damage calculator
+function createDamageCalculator(baseDamage: number): (multiplier: number) => number {
+  return (multiplier) => baseDamage * multiplier;
+}
+
+const swordDamage = createDamageCalculator(15);
+const critHit = swordDamage(2); // 30
+const normalHit = swordDamage(1); // 15
+</code></pre>
+
+<p>
+  TypeScript infers the return type from the returned arrow function, so you
+  often do not need to annotate it explicitly. Spelling it out, as above, is
+  still good practice in public APIs because it documents the contract.
+</p>
+
+<pre><code class="language-typescript">// TypeScript infers the same shape even without the explicit return annotation
+function createDamageCalculator(baseDamage: number) {
+  return (multiplier: number) => baseDamage * multiplier;
+}
+// Hover in your editor: inferred as (baseDamage: number) => (multiplier: number) => number
+</code></pre>
+
+
+<h2>Higher-Order Functions and Array Methods</h2>
+
+<p>
+  The built-in array methods <code>map</code>, <code>filter</code>, and
+  <code>reduce</code> are all higher-order functions. TypeScript uses the
+  element type of the array to infer what each callback will receive.
+</p>
+
+<pre><code class="language-typescript">type Enemy = {
+  name: string;
+  health: number;
+  isAlive: boolean;
+};
+
+const enemies: Enemy[] = [
+  { name: "goblin", health: 30, isAlive: true },
+  { name: "troll", health: 0, isAlive: false },
+  { name: "dragon", health: 200, isAlive: true },
+];
+
+// map: transform each element — callback receives Enemy, returns string
+const names: string[] = enemies.map((e) => e.name);
+
+// filter: narrow the array — callback receives Enemy, returns boolean
+const living: Enemy[] = enemies.filter((e) => e.isAlive);
+
+// reduce: accumulate a value — callback receives (number, Enemy), returns number
+const totalHealth: number = enemies.reduce((sum, e) => sum + e.health, 0);
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      For <code>reduce</code>, always supply the initial accumulator value as
+      the second argument. Without it, TypeScript widens the accumulator type
+      to <code>Enemy</code> (the array element type) instead of
+      <code>number</code>, which almost never matches what you want.
+    </p>
+  </div>
+</div>
+
+
+<h2>Combining Patterns: A Mini Event System</h2>
+
+<p>
+  Here is a practical example that ties everything together. This is a
+  simplified version of the event listener pattern that Excalibur uses
+  internally.
+</p>
+
+<pre><code class="language-typescript">type EventName = "spawn" | "destroy" | "damage";
+type EventHandler<T> = (payload: T) => void;
+
+// A registry that maps event names to lists of handlers
+const listeners: Partial<Record<EventName, EventHandler<unknown>[]>> = {};
+
+function on<T>(event: EventName, handler: EventHandler<T>): void {
+  if (!listeners[event]) {
+    listeners[event] = [];
+  }
+  // Cast needed because the registry stores EventHandler<unknown>
+  (listeners[event] as EventHandler<T>[]).push(handler);
+}
+
+function emit<T>(event: EventName, payload: T): void {
+  listeners[event]?.forEach((handler) => {
+    (handler as EventHandler<T>)(payload);
+  });
+}
+
+// Register handlers
+on("spawn", (name: string) => console.log(`${name} spawned`));
+on("damage", (amount: number) => console.log(`Took ${amount} damage`));
+
+// Fire events
+emit("spawn", "goblin");   // logs: goblin spawned
+emit("damage", 15);        // logs: Took 15 damage
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      The <code>&lt;T&gt;</code> syntax introduces a generic type parameter.
+      Generics in functions are covered in depth in the next lesson. For now,
+      read <code>EventHandler&lt;T&gt;</code> as "a handler for whatever payload
+      type T turns out to be."
+    </p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The snippet below registers typed event callbacks on an Excalibur actor. Read
+  through the annotations to see how the patterns from this lesson appear in a
+  real game context. Then try modifying the <code>onKill</code> callback to log
+  the actor's name.
+</p>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Try It: Higher-Order Functions with Excalibur Events"
+  height="500"
+></excalibur-playground>
+
+<pre><code class="language-typescript">import * as ex from "excalibur";
+
+const game = new ex.Engine({ width: 800, height: 600 });
+
+const enemy = new ex.Actor({
+  x: 400,
+  y: 300,
+  width: 32,
+  height: 32,
+  color: ex.Color.Red,
+});
+
+// on() accepts a typed callback — contextual typing infers evt's shape
+enemy.on("collisionstart", (evt: ex.CollisionStartEvent) => {
+  console.log(`Collided with: ${evt.other.name}`);
+});
+
+// A reusable handler defined as a named function
+function handleKill(evt: ex.KillEvent): void {
+  console.log(`Enemy killed at position: ${evt.target.pos}`);
+}
+
+enemy.on("kill", handleKill);
+
+// once() is also higher-order — fires the callback exactly one time
+enemy.once("postupdate", (_evt: ex.PostUpdateEvent) => {
+  console.log("First update tick complete");
+});
+
+game.add(enemy);
+game.start();
+</code></pre>
+
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Typed Enemy Processor</div>
+  <div class="exercise__body">
+    <p>
+      You have an array of enemy objects and a set of operations to perform on
+      them. Use higher-order array methods with correct TypeScript annotations
+      throughout.
+    </p>
+    <ol>
+      <li>
+        Define a type <code>Enemy</code> with fields <code>name: string</code>,
+        <code>health: number</code>, and <code>isBoss: boolean</code>.
+      </li>
+      <li>
+        Create an array of at least four enemies, including at least one boss
+        and one with zero health.
+      </li>
+      <li>
+        Use <code>filter</code> to produce a <code>living</code> array containing
+        only enemies whose health is greater than zero.
+      </li>
+      <li>
+        Use <code>map</code> on the <code>living</code> array to produce a
+        <code>string[]</code> of display labels in the format
+        <code>"[BOSS] dragon"</code> or <code>"goblin"</code> depending on the
+        <code>isBoss</code> flag.
+      </li>
+      <li>
+        Use <code>reduce</code> to calculate total health remaining across all
+        living enemies.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> All three variables
+      (<code>living</code>, labels array, and total health) are correctly typed
+      with no <code>any</code> or explicit casts required.
+    </p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Compose a Damage Pipeline</div>
+  <p>
+    Write a function <code>composeDamage</code> that accepts an array of
+    modifier functions, each typed as <code>(damage: number) =&gt; number</code>,
+    and returns a single function that applies them all in sequence. Use
+    <code>reduce</code> internally. Then create at least three modifiers
+    (critical hit multiplier, armor reduction, minimum damage floor) and verify
+    that the composed result produces the correct output for a given input. Do
+    not use <code>any</code> anywhere.
+  </p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>A higher-order function accepts a function as a parameter, returns a function, or both.</li>
+    <li>Callback types are written as inline call signatures: <code>(param: Type) =&gt; ReturnType</code>.</li>
+    <li>Contextual typing means TypeScript infers callback parameter types from the surrounding function's signature, so you rarely need to re-annotate them at the call site.</li>
+    <li>Always use explicit call signatures instead of the bare <code>Function</code> type to preserve type safety inside callbacks.</li>
+    <li>Type aliases give reusable callback shapes a single, readable name and keep function signatures clean.</li>
+    <li>Array methods like <code>map</code>, <code>filter</code>, and <code>reduce</code> are higher-order functions, and TypeScript infers callback types from the array's element type automatically.</li>
   </ul>
 </section>
