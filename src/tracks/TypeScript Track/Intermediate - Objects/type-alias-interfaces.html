@@ -1,25 +1,412 @@
-<!-- Stub: Catch the Star — full content coming soon -->
+<!--
+  type-aliases-vs-interfaces.html
+  ================================
+  Track:  TypeScript Fundamentals
+  Module: Types & Shapes
+  Lesson: Type Aliases vs Interfaces
+
+  IMPORTANT:
+  - This file is CONTENT ONLY — no <html>, <head>, or <body> tags.
+  - It will be injected into the lesson-view component by lesson-view.js.
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Declare object shapes using both <code>type</code> aliases and <code>interface</code> declarations</li>
+    <li>Explain the key behavioral differences between the two, including declaration merging and extension syntax</li>
+    <li>Choose the appropriate tool for a given situation based on concrete rules</li>
+    <li>Recognize when Excalibur's own type system uses interfaces so you can extend it confidently</li>
   </ul>
 </section>
 
-<h2>Catch the Star</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  One of the first decisions you face when shaping data in TypeScript is whether to reach for
+  <code>type</code> or <code>interface</code>. Both let you describe the structure of an object, and at first glance they look nearly
+  identical. This similarity trips up a lot of developers who either pick one arbitrarily or assume they are fully interchangeable.
+</p>
+
+<p>
+  In a game built with Excalibur, you will define shapes constantly: a player's stats, an enemy's configuration, a collectible item, an
+  event payload. Picking the right tool up front keeps your code extensible and avoids subtle bugs that only appear once your game
+  grows. By the end of this lesson you will know exactly which tool to reach for and why.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 1: TYPE ALIASES
+     ═══════════════════════════════════════════════ -->
+<h2>Type Aliases</h2>
+
+<p>
+  A <strong>type alias</strong> gives a name to any TypeScript type. That includes object shapes, but also unions, intersections,
+  primitives, tuples, and more. You declare one with the <code>type</code> keyword.
+</p>
+
+<pre><code class="language-typescript">// A simple object shape as a type alias
+type PlayerStats = {
+  health: number;
+  speed: number;
+  attackPower: number;
+};
+
+// Using the alias
+const hero: PlayerStats = {
+  health: 100,
+  speed: 5,
+  attackPower: 12,
+};
+</code></pre>
+
+<p>
+  Type aliases shine when you need to name something that is <em>not</em> an object shape. Unions and intersections are impossible to
+  express with an interface.
+</p>
+
+<pre><code class="language-typescript">// Union: a collectible can be one of several kinds
+type Collectible = "coin" | "gem" | "powerup";
+
+// Intersection: merge two shapes into one
+type BaseActor = { x: number; y: number };
+type Labeled    = { name: string };
+type NamedActor = BaseActor & Labeled;
+
+const enemy: NamedActor = { x: 200, y: 300, name: "Goblin" };
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      If you need a union (<code>A | B</code>) or a tuple (<code>[string, number]</code>), you <em>must</em> use a type alias.
+      Interfaces cannot express those shapes.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2: INTERFACES
+     ═══════════════════════════════════════════════ -->
+<h2>Interfaces</h2>
+
+<p>
+  An <strong>interface</strong> describes the shape of an object or class. It uses the <code>interface</code> keyword and is
+  specifically designed for defining contracts that objects and classes can fulfill.
+</p>
+
+<pre><code class="language-typescript">// The same player shape as an interface
+interface PlayerStats {
+  health: number;
+  speed: number;
+  attackPower: number;
+}
+
+const hero: PlayerStats = {
+  health: 100,
+  speed: 5,
+  attackPower: 12,
+};
+</code></pre>
+
+<p>
+  Interfaces support <strong>extension</strong> with the <code>extends</code> keyword, making inheritance chains clean and readable.
+  This is especially useful when building on top of Excalibur's built-in types.
+</p>
+
+<pre><code class="language-typescript">interface BaseActorConfig {
+  x: number;
+  y: number;
+}
+
+interface EnemyConfig extends BaseActorConfig {
+  health: number;
+  speed: number;
+  patrolRadius: number;
+}
+
+const goblin: EnemyConfig = {
+  x: 400,
+  y: 200,
+  health: 50,
+  speed: 3,
+  patrolRadius: 100,
+};
+</code></pre>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3: THE KEY DIFFERENCES
+     ═══════════════════════════════════════════════ -->
+<h2>Key Differences</h2>
+
+<h3>Declaration Merging</h3>
+
+<p>
+  Interfaces support <strong>declaration merging</strong>: if you declare the same interface name twice, TypeScript merges them into
+  one. Type aliases do not support this and will throw a compile error if you try.
+</p>
+
+<pre><code class="language-typescript">// Interface: second declaration merges into the first
+interface ActorEvents {
+  onCollide: () => void;
+}
+
+interface ActorEvents {
+  onDeath: () => void;
+}
+
+// Result: ActorEvents now has BOTH onCollide and onDeath
+const events: ActorEvents = {
+  onCollide: () => console.log("hit!"),
+  onDeath:   () => console.log("dead!"),
+};
+</code></pre>
+
+<pre><code class="language-typescript">// Type alias: duplicate name is a compile error
+type ActorEvents = { onCollide: () => void };
+type ActorEvents = { onDeath:   () => void }; // Error: Duplicate identifier
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Declaration merging is powerful but can be surprising. If you define the same interface in two different files and both are
+      imported, TypeScript silently combines them. This is intentional behavior, but be aware that it is happening.
+    </p>
+  </div>
+</div>
+
+<h3>Extending vs Intersecting</h3>
+
+<p>
+  Both tools support combining shapes, but the syntax differs. Interfaces use <code>extends</code>; type aliases use intersections
+  (<code>&amp;</code>).
+</p>
+
+<pre><code class="language-typescript">// Interface extension
+interface Damageable {
+  takeDamage(amount: number): void;
+}
+
+interface Enemy extends Damageable {
+  patrol(): void;
+}
+
+// Type alias intersection (equivalent result)
+type Damageable2 = { takeDamage: (amount: number) => void };
+type Enemy2      = Damageable2 & { patrol: () => void };
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      <code>extends</code> and <code>&amp;</code> are functionally similar for object shapes, but <code>extends</code> produces a
+      clearer error message when a conflict exists between the two shapes. TypeScript will tell you exactly which property clashes.
+    </p>
   </div>
 </div>
 
+<h3>What Only Type Aliases Can Do</h3>
+
+<pre><code class="language-typescript">// Primitives
+type EntityId = string;
+
+// Unions
+type Direction = "up" | "down" | "left" | "right";
+
+// Tuples
+type Vec2 = [x: number, y: number];
+
+// Conditional types
+type NonNullable&lt;T&gt; = T extends null | undefined ? never : T;
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      If your type involves anything other than a plain object shape (union, tuple, primitive alias, conditional), you need a type
+      alias. Interfaces are strictly for object and class contracts.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 4: WHICH ONE SHOULD YOU USE?
+     ═══════════════════════════════════════════════ -->
+<h2>Which One Should You Use?</h2>
+
+<p>Here is a practical decision rule you can apply immediately:</p>
+
+<ul>
+  <li>
+    Use <strong>interface</strong> when you are defining an object or class contract that other code will implement or extend. This is
+    the pattern Excalibur itself uses for actor options, engine configuration, and event maps.
+  </li>
+  <li>
+    Use <strong>type alias</strong> when you need anything a union, intersection of unrelated shapes, tuple, primitive rename, or
+    conditional type.
+  </li>
+  <li>
+    When both would work, prefer <strong>interface</strong> for public-facing APIs (things other code extends) and
+    <strong>type alias</strong> for internal, one-off shapes.
+  </li>
+</ul>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Excalibur's source uses interfaces extensively for its configuration objects (like
+      <code>ActorArgs</code>) so that you can extend them in your own project without forking the library. When you see an Excalibur
+      type you want to build on top of, check whether it is an interface first.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The snippet below sets up a minimal Excalibur scene using both an interface and a type alias. The interface defines an enemy's
+  configuration contract. The type alias defines a union of possible enemy roles. Modify the code to add a new property to the
+  interface and a new role to the union, then watch TypeScript enforce both shapes.
+</p>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Try It: Type Aliases vs Interfaces"
+  height="500"
+></excalibur-playground>
+
+<pre><code class="language-typescript">import * as ex from "excalibur";
+
+// Interface: a contract for configuring enemies
+interface EnemyConfig {
+  x: number;
+  y: number;
+  health: number;
+  speed: number;
+}
+
+// Type alias: a union of valid enemy roles
+type EnemyRole = "patrol" | "guard" | "boss";
+
+// A factory function that uses both
+function spawnEnemy(config: EnemyConfig, role: EnemyRole): ex.Actor {
+  const actor = new ex.Actor({
+    x: config.x,
+    y: config.y,
+    width: 32,
+    height: 32,
+    color: role === "boss" ? ex.Color.Red : ex.Color.Orange,
+  });
+
+  console.log(`Spawning ${role} with ${config.health} HP at (${config.x}, ${config.y})`);
+  return actor;
+}
+
+const game = new ex.Engine({ width: 800, height: 600 });
+
+game.start().then(() => {
+  const enemy = spawnEnemy({ x: 400, y: 300, health: 80, speed: 3 }, "patrol");
+  game.add(enemy);
+});
+</code></pre>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Model a Game Item System</div>
+  <div class="exercise__body">
+    <p>You are building an item pickup system for a platformer. Define the types needed to represent items in your game world.</p>
+    <ol>
+      <li>
+        Create an <code>interface</code> named <code>ItemConfig</code> with at least three properties: a string <code>name</code>, a
+        number <code>value</code>, and a boolean <code>isRare</code>.
+      </li>
+      <li>
+        Create a <code>type</code> alias named <code>ItemCategory</code> that is a union of at least three string literals (for example
+        <code>"weapon"</code>, <code>"armor"</code>, <code>"consumable"</code>).
+      </li>
+      <li>
+        Write a function <code>describeItem</code> that accepts an <code>ItemConfig</code> and an <code>ItemCategory</code> and logs a
+        description string to the console.
+      </li>
+      <li>
+        Call the function with a valid item and confirm TypeScript accepts it. Then try passing an invalid category string and observe
+        the compile error.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript enforces both the object shape via the interface and the allowed string values via
+      the union type alias, with no runtime code needed.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Extend an Excalibur Interface</div>
+  <p>
+    Look up the <code>ActorArgs</code> interface in the Excalibur source or its type declarations. Create your own interface
+    <code>EnemyArgs</code> that extends <code>ActorArgs</code> and adds at minimum a <code>health</code> number, an
+    <code>attackDamage</code> number, and a <code>role</code> property typed to a union of your own string literals. Write a subclass
+    of <code>ex.Actor</code> whose constructor accepts <code>EnemyArgs</code> and stores those extra properties. Verify that passing an
+    object missing any required field produces a TypeScript error.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span
+        >Both <code>type</code> aliases and <code>interface</code> declarations can describe object shapes, and for plain objects they
+        are mostly interchangeable.</span
+      >
+    </li>
+    <li><span>Only type aliases can express unions, tuples, primitive renames, and conditional types.</span></li>
+    <li>
+      <span
+        >Only interfaces support declaration merging, which allows multiple declarations of the same name to be combined
+        automatically.</span
+      >
+    </li>
+    <li>
+      <span
+        >Use <code>interface</code> for object or class contracts that other code will extend or implement; use <code>type</code> for
+        anything else.</span
+      >
+    </li>
+    <li>
+      <span
+        >Excalibur uses interfaces for its configuration objects, so you can extend them cleanly with <code>extends</code> without
+        modifying the library.</span
+      >
+    </li>
   </ul>
 </section>

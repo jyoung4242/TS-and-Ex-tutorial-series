@@ -1,25 +1,428 @@
-<!-- Stub: Catch the Star — full content coming soon -->
+<!--
+  optional-and-readonly-properties.html
+  TypeScript Academy — Functions Module
+  Lesson: Optional Properties & Readonly Props
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Declare optional properties on TypeScript interfaces and object types using the <code>?</code> modifier</li>
+    <li>Use <code>readonly</code> to prevent mutation of object properties after initialization</li>
+    <li>Safely access optional properties using narrowing checks and optional chaining</li>
+    <li>Recognize when to reach for <code>readonly</code> vs. <code>const</code> and understand the difference</li>
+    <li>Apply both modifiers in ExcaliburJS game configurations such as actor options and scene settings</li>
   </ul>
 </section>
 
-<h2>Catch the Star</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you are defining a configuration object for a game enemy. Every enemy needs a name and a position, but not every enemy has a
+  boss title, a patrol route, or a custom sprite. Forcing every caller to supply those fields would be tedious and error-prone.
+  TypeScript's optional property modifier (<code>?</code>) solves this elegantly: mark a field as optional, and the type system accepts
+  objects that omit it entirely while still catching typos and wrong types.
+</p>
+
+<p>
+  On the flip side, some values must never change after an object is created. A player's unique ID, a level's seed, or a physics
+  constant should be locked down. TypeScript's <code>readonly</code>
+  modifier communicates this intent clearly and enforces it at compile time. Together, these two modifiers let you design object shapes
+  that are both flexible where they need to be and rigid where they should be.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>Optional Properties with <code>?</code></h2>
+
+<p>
+  Add a <code>?</code> after a property name to make it optional. TypeScript will accept objects that omit the field, and the inferred
+  type of that property becomes <code>T | undefined</code>
+  inside the interface.
+</p>
+
+<pre><code class="language-typescript">interface EnemyConfig {
+  name: string;           // required — every enemy needs a name
+  health: number;         // required — every enemy needs health
+  bossTitle?: string;     // optional — only boss-tier enemies have this
+  patrolRadius?: number;  // optional — only patrolling enemies need this
+}
+
+// All three of these are valid:
+const grunt: EnemyConfig = { name: "Grunt", health: 40 };
+const captain: EnemyConfig = { name: "Captain", health: 120, bossTitle: "The Iron Fist" };
+const guard: EnemyConfig = { name: "Guard", health: 80, patrolRadius: 200 };
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      Optional properties differ from properties typed as <code>string | undefined</code>. An optional property may be
+      <em>omitted</em> entirely from the object literal. A property typed as <code>string | undefined</code> must still be present in
+      the literal, even if its value is <code>undefined</code>.
+    </p>
   </div>
 </div>
 
+<h3>Accessing Optional Properties Safely</h3>
+
+<p>
+  Because an optional property may be <code>undefined</code>, TypeScript will flag direct use of it where a concrete value is expected.
+  You have two clean options: a narrowing check, or optional chaining with a fallback.
+</p>
+
+<pre><code class="language-typescript">function announceEnemy(config: EnemyConfig): string {
+  // Option 1 — explicit narrowing check
+  if (config.bossTitle !== undefined) {
+    // TypeScript now knows bossTitle is a string here
+    return `${config.bossTitle}: ${config.name} approaches!`;
+  }
+
+  return `${config.name} appears!`;
+}
+
+function getPatrolRadius(config: EnemyConfig): number {
+  // Option 2 — optional chaining with nullish coalescing fallback
+  return config.patrolRadius ?? 0;
+}
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      The <code>??</code> (nullish coalescing) operator is a great companion to optional properties. It supplies a default only when
+      the value is <code>null</code> or <code>undefined</code>, so a legitimate falsy value like <code>0</code> is preserved. Prefer
+      <code>??</code> over <code>||</code> when working with optional numbers or booleans.
+    </p>
+  </div>
+</div>
+
+<h3>Optional Properties in Function Parameters</h3>
+
+<p>
+  The same <code>?</code> syntax works on function parameters, which is especially useful for configuration or options objects passed
+  to utility functions.
+</p>
+
+<pre><code class="language-typescript">function spawnEnemy(name: string, health: number, bossTitle?: string): void {
+  const label = bossTitle ? `[BOSS] ${bossTitle} — ${name}` : name;
+  console.log(`Spawning: ${label} (HP: ${health})`);
+}
+
+spawnEnemy("Grunt", 40);                         // fine — bossTitle omitted
+spawnEnemy("Warlord", 500, "The Undying");       // fine — bossTitle provided
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Optional parameters must come after all required parameters. Placing an optional parameter before a required one is a compile
+      error. If your options object has many optional fields, prefer an options interface over individual optional parameters to keep
+      signatures readable.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     READONLY
+     ═══════════════════════════════════════════════ -->
+<h2>Preventing Mutation with <code>readonly</code></h2>
+
+<p>
+  Prefix any property with <code>readonly</code> and TypeScript will reject any attempt to reassign it after the object is created.
+  This is purely a compile-time constraint — no runtime overhead is added.
+</p>
+
+<pre><code class="language-typescript">interface PlayerProfile {
+  readonly id: string;        // assigned once, never changed
+  readonly createdAt: number; // timestamp locked at account creation
+  username: string;           // mutable — players can rename themselves
+  level: number;              // mutable — level increases over time
+}
+
+const player: PlayerProfile = {
+  id: "player-001",
+  createdAt: Date.now(),
+  username: "Archer42",
+  level: 1,
+};
+
+player.username = "Archer42_Elite"; // OK — username is mutable
+player.level = 2;                   // OK — level is mutable
+
+player.id = "player-999";           // Error: Cannot assign to 'id'
+                                    // because it is a read-only property.
+</code></pre>
+
+<h3><code>readonly</code> vs. <code>const</code></h3>
+
+<p>
+  A common source of confusion is when to use <code>const</code> and when to use <code>readonly</code>. The rule is straightforward:
+  <code>const</code> applies to <em>variables</em>, and <code>readonly</code> applies to <em>properties</em>.
+</p>
+
+<pre><code class="language-typescript">const config = { gravity: 9.8, maxSpeed: 600 };
+
+// const prevents reassigning the variable itself:
+// config = { gravity: 0, maxSpeed: 400 }; // Error
+
+// But properties are still mutable!
+config.gravity = 0;    // No error — this compiles fine
+config.maxSpeed = 999; // No error — this compiles fine
+
+// To lock the properties too, use readonly on the type:
+interface PhysicsConfig {
+  readonly gravity: number;
+  readonly maxSpeed: number;
+}
+
+const physics: PhysicsConfig = { gravity: 9.8, maxSpeed: 600 };
+physics.gravity = 0; // Error: Cannot assign to 'gravity'
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      <code>const</code> locks the binding (what the variable points to). <code>readonly</code> locks the property (what's inside the
+      object). You often need both: <code>const</code> on the variable declaration and <code>readonly</code> on the interface to fully
+      protect a value.
+    </p>
+  </div>
+</div>
+
+<h3>Readonly Arrays</h3>
+
+<p>
+  You can also apply readonly semantics to arrays using <code>ReadonlyArray&lt;T&gt;</code> or the shorthand <code>readonly T[]</code>.
+  This prevents methods like <code>push</code>, <code>pop</code>, and direct index assignment from compiling.
+</p>
+
+<pre><code class="language-typescript">interface LevelConfig {
+  readonly name: string;
+  readonly spawnPoints: readonly [number, number][]; // array of coordinate pairs
+}
+
+const level: LevelConfig = {
+  name: "The Forgotten Vault",
+  spawnPoints: [[100, 200], [400, 150], [700, 300]],
+};
+
+level.spawnPoints.push([900, 100]); // Error: Property 'push' does not exist
+                                     // on type 'readonly [number, number][]'
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      In ExcaliburJS, actor and scene options objects are excellent candidates for
+      <code>readonly</code> arrays and properties. For example, the list of waypoints in a patrol path should not be modified after the
+      actor is initialized. Marking it <code>readonly</code> makes the intent explicit and prevents accidental mutation in event
+      handlers.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     COMBINING BOTH MODIFIERS
+     ═══════════════════════════════════════════════ -->
+<h2>Combining <code>readonly</code> and <code>?</code></h2>
+
+<p>
+  Both modifiers can appear on the same property. This is common in configuration interfaces where some fields are optional and, once
+  provided, should never be overwritten.
+</p>
+
+<pre><code class="language-typescript">interface ActorOptions {
+  readonly id?: string;          // optional, but immutable if provided
+  readonly tag?: string;         // optional label, locked after creation
+  x: number;                     // required, mutable (position changes)
+  y: number;                     // required, mutable (position changes)
+  width?: number;                // optional, mutable (resize is allowed)
+  height?: number;               // optional, mutable (resize is allowed)
+}
+
+function createActor(options: ActorOptions) {
+  const resolvedId = options.id ?? crypto.randomUUID();
+  console.log(`Actor created — id: ${resolvedId}, tag: ${options.tag ?? "none"}`);
+}
+
+createActor({ x: 100, y: 200 });
+createActor({ id: "player", tag: "hero", x: 50, y: 80 });
+</code></pre>
+
+<p>
+  Notice that <code>readonly id?</code> reads as "this field is optional; if it is present, it cannot be reassigned." The modifiers are
+  orthogonal and compose cleanly.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The example below models a minimal ExcaliburJS-style setup using optional and readonly properties. A
+  <code>SceneConfig</code> interface locks in the scene name and background color while allowing an optional music track and spawn
+  list. Try adding a new optional field, accessing it safely, and marking a mutable field as <code>readonly</code> to see how the
+  compiler responds.
+</p>
+
+<pre><code class="language-typescript">// Paste this into the Excalibur playground or any TypeScript sandbox
+
+interface SceneConfig {
+  readonly name: string;
+  readonly backgroundColor: string;
+  musicTrack?: string;
+  spawnLimit?: number;
+}
+
+function loadScene(config: SceneConfig): void {
+  console.log(`Loading scene: ${config.name}`);
+  console.log(`Background: ${config.backgroundColor}`);
+
+  if (config.musicTrack !== undefined) {
+    console.log(`Playing music: ${config.musicTrack}`);
+  }
+
+  const limit = config.spawnLimit ?? 10;
+  console.log(`Max spawns: ${limit}`);
+}
+
+const dungeonScene: SceneConfig = {
+  name: "Sunken Dungeon",
+  backgroundColor: "#1a1a2e",
+  musicTrack: "dungeon_theme.ogg",
+};
+
+const hubScene: SceneConfig = {
+  name: "Town Hub",
+  backgroundColor: "#2d5a27",
+  spawnLimit: 5,
+};
+
+loadScene(dungeonScene);
+loadScene(hubScene);
+
+// Uncomment to see the readonly error:
+// dungeonScene.name = "Renamed"; // Error: Cannot assign to 'name'
+</code></pre>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Try It: Optional and Readonly Properties"
+  height="500"
+></excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Design a Weapon Config Interface</div>
+  <div class="exercise__body">
+    <p>
+      You are building a weapon system for a top-down game. Each weapon has a fixed identity and a set of stats, some of which are
+      optional depending on the weapon type.
+    </p>
+    <ol>
+      <li>
+        Define a <code>WeaponConfig</code> interface with the following required readonly properties: <code>id</code> (string),
+        <code>name</code> (string), and <code>baseDamage</code> (number).
+      </li>
+      <li>
+        Add the following optional properties: <code>range</code> (number, for ranged weapons), <code>ammoType</code> (string, for
+        guns), and <code>chargeTime</code> (number, for charged attacks).
+      </li>
+      <li>
+        Write a function <code>describeWeapon(weapon: WeaponConfig): string</code> that returns a description string. If
+        <code>range</code> is present, append " (ranged)" to the name. Use a nullish coalescing fallback for any optional number fields
+        in the output.
+      </li>
+      <li>
+        Create at least three weapon objects: a melee sword, a ranged bow, and a charge-attack staff. Pass each to
+        <code>describeWeapon</code> and log the result.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> No TypeScript errors, three distinct console outputs, and an attempt to reassign
+      <code>id</code> on any weapon produces a compiler error.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Build a Typed Inventory Slot System</div>
+  <p>
+    Define a <code>InventorySlot</code> interface where the <code>slotIndex</code> is readonly, the <code>item</code> property is
+    optional (and itself has readonly <code>id</code> and <code>name</code> fields), and a mutable <code>quantity</code> field. Write a
+    function <code>equip(slot: InventorySlot): void</code> that logs the equipped item or reports the slot as empty. Then model a
+    5-slot inventory as a <code>readonly InventorySlot[]</code> and verify that pushing to it fails at compile time while updating a
+    <code>quantity</code> value on an existing slot succeeds.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span
+        >The <code>?</code> modifier makes a property optional, and TypeScript widens its type to include <code>undefined</code> —
+        always narrow or provide a fallback before using it.</span
+      >
+    </li>
+    <li>
+      <span
+        >The <code>readonly</code> modifier prevents reassignment of a property after initialization and applies to both individual
+        fields and arrays.</span
+      >
+    </li>
+    <li>
+      <span
+        ><code>const</code> locks a variable binding; <code>readonly</code> locks an object property. You often need both to fully
+        protect a value from mutation.</span
+      >
+    </li>
+    <li>
+      <span
+        >Optional and readonly modifiers are composable: <code>readonly field?: Type</code> is valid and common in configuration
+        interfaces.</span
+      >
+    </li>
+    <li>
+      <span
+        >Use optional chaining (<code>?.</code>) and nullish coalescing (<code>??</code>) to access optional properties safely and
+        supply meaningful defaults.</span
+      >
+    </li>
+    <li>
+      <span
+        >In game development, readonly is ideal for actor IDs, level names, and physics constants; optional properties shine in
+        flexible configuration objects like scene and actor options.</span
+      >
+    </li>
   </ul>
 </section>

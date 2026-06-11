@@ -1,0 +1,475 @@
+<!--
+  array-methods-type-inference.html
+  ===================================
+  Track:  TypeScript Fundamentals
+  Module: Working with Types
+  Lesson: Array Methods and Type Inference
+
+  Content only — no <html>, <head>, or <body> tags.
+  Injected into <lesson-view> by lesson-view.js.
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Explain how TypeScript infers return types from <code>map</code>, <code>filter</code>, and <code>reduce</code></li>
+    <li>Write typed callbacks for array methods without redundant annotations</li>
+    <li>Identify when TypeScript widens or narrows a type through chained array operations</li>
+    <li>Use explicit type parameters on array methods to resolve ambiguous inference</li>
+    <li>Apply these patterns in an Excalibur game context such as filtering enemy lists and mapping score data</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  You have a list of enemies on screen and you want only the ones that are still alive. You call <code>filter</code>, grab the result,
+  and try to access <code>.health</code>
+  on each element. TypeScript knows exactly what type comes back, and it is not
+  <code>any[]</code>. It is the same <code>Enemy[]</code> you started with, and you get full autocomplete without writing a single
+  extra annotation.
+</p>
+
+<p>
+  That is type inference at work inside array methods. TypeScript tracks the element type of an array through every transformation —
+  <code>map</code>, <code>filter</code>, <code>reduce</code>, <code>find</code>, and others — and produces a precise return type for
+  each call. Understanding how this works lets you write leaner, safer code and helps you spot the moments when you need to step in
+  with an explicit hint.
+</p>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      This lesson assumes you are comfortable with basic TypeScript annotations and function types. If arrow function syntax feels
+      unfamiliar, review the Arrow Functions lesson before continuing.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>How TypeScript Tracks Array Element Types</h2>
+
+<p>
+  Every array in TypeScript has an element type. When you declare
+  <code>const scores: number[] = [10, 20, 30]</code>, the element type is <code>number</code>. Built-in array methods are generic, and
+  their type signatures use that element type to compute the return type automatically.
+</p>
+
+<pre><code class="language-typescript">const scores: number[] = [10, 20, 30];
+
+// TypeScript infers doubled as number[]
+// because map's callback returns number
+const doubled = scores.map(s => s * 2);
+
+// TypeScript infers high as number[]
+// because filter preserves the element type
+const high = scores.filter(s => s > 15);
+
+// TypeScript infers total as number
+// because the accumulator and return value are both number
+const total = scores.reduce((acc, s) => acc + s, 0);
+</code></pre>
+
+<p>
+  None of these variables need an explicit type annotation. TypeScript reads the callback return type and uses it to determine what
+  comes out the other end.
+</p>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      The return type of a <code>map</code> callback becomes the element type of the new array. The return type of a
+      <code>filter</code> callback does not change the element type — it only decides which elements survive.
+    </p>
+  </div>
+</div>
+
+<h2>map: Transforming Elements</h2>
+
+<p><code>Array.prototype.map</code> has this signature (simplified):</p>
+
+<pre><code class="language-typescript">map&lt;U&gt;(callback: (value: T, index: number, array: T[]) => U): U[]
+</code></pre>
+
+<p>
+  <code>T</code> is the source element type and <code>U</code> is whatever the callback returns. TypeScript infers <code>U</code> from
+  your callback, so you almost never need to write it yourself.
+</p>
+
+<pre><code class="language-typescript">interface Enemy {
+  id: number;
+  name: string;
+  health: number;
+}
+
+const enemies: Enemy[] = [
+  { id: 1, name: "Slime",  health: 30 },
+  { id: 2, name: "Goblin", health: 80 },
+  { id: 3, name: "Orc",    health: 120 },
+];
+
+// TypeScript infers names as string[]
+const names = enemies.map(e => e.name);
+
+// TypeScript infers healthBars as { id: number; pct: number }[]
+const healthBars = enemies.map(e => ({
+  id: e.id,
+  pct: e.health / 120,
+}));
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      When your callback returns an object literal, TypeScript infers a fresh type for that shape. Hover over the variable in your
+      editor to see the full inferred type before committing to an explicit interface.
+    </p>
+  </div>
+</div>
+
+<h2>filter: Narrowing with Type Guards</h2>
+
+<p>
+  <code>filter</code> keeps elements that pass a test. By default TypeScript preserves the original element type, which is correct when
+  all elements are the same type. But when your array holds a union, plain <code>filter</code> does not narrow the type on its own.
+</p>
+
+<pre><code class="language-typescript">type Projectile = { kind: "bullet"; speed: number };
+type Particle  = { kind: "particle"; lifetime: number };
+type Entity = Projectile | Particle;
+
+const entities: Entity[] = [ /* ... */ ];
+
+// Without a type guard, filtered is still Entity[]
+const filtered = entities.filter(e => e.kind === "bullet");
+
+// TypeScript does not know filtered contains only Projectile
+// so this is a type error:
+// filtered[0].speed; // Property 'speed' does not exist on type 'Entity'
+</code></pre>
+
+<p>To narrow the type, use a type predicate in your callback:</p>
+
+<pre><code class="language-typescript">function isBullet(e: Entity): e is Projectile {
+  return e.kind === "bullet";
+}
+
+// Now TypeScript infers bullets as Projectile[]
+const bullets = entities.filter(isBullet);
+bullets[0].speed; // OK
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      A plain boolean-returning callback passed to <code>filter</code> does not narrow union types. You must use a type predicate
+      (<code>x is T</code>) to tell TypeScript what the surviving elements look like.
+    </p>
+  </div>
+</div>
+
+<h2>reduce: Accumulating into a New Shape</h2>
+
+<p>
+  <code>reduce</code> is the most flexible but also the trickiest. When the accumulator type is different from the element type,
+  TypeScript cannot infer it from the callback alone. You must either provide an initial value that implies the type or supply an
+  explicit type argument.
+</p>
+
+<pre><code class="language-typescript">interface ScoreEntry {
+  playerId: string;
+  points: number;
+}
+
+const entries: ScoreEntry[] = [
+  { playerId: "p1", points: 200 },
+  { playerId: "p2", points: 150 },
+  { playerId: "p1", points: 75  },
+];
+
+// Accumulating into Record&lt;string, number&gt;
+// TypeScript needs the explicit type argument here
+// because {} alone would be inferred as {}
+const totals = entries.reduce&lt;Record&lt;string, number&gt;&gt;((acc, entry) => {
+  acc[entry.playerId] = (acc[entry.playerId] ?? 0) + entry.points;
+  return acc;
+}, {});
+
+// totals is Record&lt;string, number&gt;
+// totals["p1"] === 275
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      When the initial value is typed as a literal like <code>{}</code>, TypeScript infers the accumulator as <code>{}</code>, which
+      rejects property writes. Supplying the explicit type parameter <code>reduce&lt;Record&lt;string, number&gt;&gt;</code>
+      solves this cleanly.
+    </p>
+  </div>
+</div>
+
+<h2>find and findIndex</h2>
+
+<p>
+  <code>find</code> returns <code>T | undefined</code> because the element may not exist. TypeScript always includes
+  <code>undefined</code> in the return type, so you must handle that case before accessing properties.
+</p>
+
+<pre><code class="language-typescript">const boss = enemies.find(e => e.health > 100);
+
+// boss is Enemy | undefined
+// This is a type error:
+// boss.name; // Object is possibly 'undefined'
+
+// Safe access:
+if (boss) {
+  console.log(boss.name); // OK
+}
+
+// Or optional chaining:
+const bossName = boss?.name; // string | undefined
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      <code>find</code> also accepts a type predicate. Use one when searching a union array to get a narrowed result type:
+      <code>enemies.find(isBoss)</code> returns <code>Boss | undefined</code> instead of <code>Enemy | undefined</code>.
+    </p>
+  </div>
+</div>
+
+<h2>Chaining Methods</h2>
+
+<p>
+  TypeScript tracks the type through every step of a chain. Each method receives the output of the previous one, so inference flows
+  naturally.
+</p>
+
+<pre><code class="language-typescript">// Start: Enemy[]
+// After filter: Enemy[] (only alive ones)
+// After map: string[] (names only)
+const aliveNames = enemies
+  .filter(e => e.health > 0)
+  .map(e => e.name);
+
+// aliveNames is string[]
+</code></pre>
+
+<p>
+  The only moment inference can break down in a chain is when you introduce a
+  <code>reduce</code> that changes the shape. At that point, supply the explicit type argument as shown in the earlier section.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The snippet below sets up a small scene with an array of actors representing enemies. It uses <code>filter</code> with a type
+  predicate and <code>map</code>
+  to extract display data — the same patterns from this lesson applied directly to an Excalibur scene.
+</p>
+
+<excalibur-playground label="Try It: Array Methods in an Excalibur Scene" height="520">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    interface EnemyActor extends ex.Actor {
+      enemyType: "grunt" | "boss";
+      health: number;
+    }
+
+    function isGrunt(actor: ex.Actor): actor is EnemyActor & { enemyType: "grunt" } {
+      return (actor as EnemyActor).enemyType === "grunt";
+    }
+
+    const game = new ex.Engine({ width: 600, height: 400 });
+
+    // Create a few enemy actors
+    const makeEnemy = (
+      x: number,
+      type: "grunt" | "boss",
+      health: number,
+      color: ex.Color
+    ): EnemyActor => {
+      const actor = new ex.Actor({
+        x,
+        y: 200,
+        width: 40,
+        height: 40,
+        color,
+      }) as EnemyActor;
+      actor.enemyType = type;
+      actor.health = health;
+      return actor;
+    };
+
+    const e1 = makeEnemy(100, "grunt",  30, ex.Color.Green);
+    const e2 = makeEnemy(200, "boss",  120, ex.Color.Red);
+    const e3 = makeEnemy(300, "grunt",   0, ex.Color.Gray);  // already dead
+    const e4 = makeEnemy(400, "grunt",  60, ex.Color.Green);
+
+    const scene = game.currentScene;
+    [e1, e2, e3, e4].forEach(e => scene.add(e));
+
+    // filter: alive enemies only (health > 0)
+    const alive = [e1, e2, e3, e4].filter(e => e.health > 0);
+
+    // filter with type predicate: alive grunts only
+    const aliveGrunts = alive.filter(isGrunt);
+
+    // map: extract health values for a HUD
+    const healthValues: number[] = alive.map(e => e.health);
+
+    console.log("Alive count:", alive.length);       // 3
+    console.log("Alive grunts:", aliveGrunts.length); // 2
+    console.log("Health values:", healthValues);      // [30, 120, 60]
+
+    game.start();
+  </script>
+</excalibur-playground>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      The gray actor (<code>e3</code>) is excluded by the <code>filter(e => e.health > 0)</code> call. Try changing the health values
+      or adding a <code>reduce</code> that sums total remaining health across all alive enemies.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Leaderboard from Raw Score Entries</div>
+  <div class="exercise__body">
+    <p>
+      You are given an array of raw score entries. Use array methods and type inference to produce a sorted leaderboard without writing
+      unnecessary type annotations.
+    </p>
+
+    <pre><code class="language-typescript">interface RawEntry {
+  player: string;
+  level: number;
+  points: number;
+}
+
+const rawEntries: RawEntry[] = [
+  { player: "Ada",   level: 3, points: 300 },
+  { player: "Björn", level: 1, points: 100 },
+  { player: "Ada",   level: 5, points: 500 },
+  { player: "Chen",  level: 2, points: 200 },
+  { player: "Björn", level: 4, points: 400 },
+];
+</code></pre>
+
+    <ol>
+      <li>
+        Use <code>reduce</code> to produce a <code>Record&lt;string, number&gt;</code>
+        that maps each player name to their total points across all entries. Hover over the result and confirm TypeScript infers the
+        correct type.
+      </li>
+      <li>
+        Use <code>Object.entries</code> and <code>map</code> to convert that record into an array of
+        <code>{ player: string; total: number }</code> objects. Let TypeScript infer the array element type — do not annotate it
+        yourself.
+      </li>
+      <li>Use <code>sort</code> to order the array from highest to lowest total.</li>
+      <li>
+        Use <code>find</code> to locate the entry where <code>player === "Ada"</code>. Handle the <code>undefined</code> case before
+        accessing <code>.total</code>.
+      </li>
+    </ol>
+
+    <p>
+      <strong>Expected result:</strong> A leaderboard array sorted highest to lowest, and a safe read of Ada's total (800). TypeScript
+      should raise no errors, and you should have written zero explicit type annotations beyond the initial <code>RawEntry[]</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Typed Wave Spawner</div>
+  <p>
+    You have an array of <code>SpawnConfig</code> objects, each describing an enemy type and a count. Write a function
+    <code>buildWave</code> that uses <code>flatMap</code> to expand each config into an array of individual spawn descriptors, then
+    filters the result to only include descriptors above a minimum difficulty threshold. The return type must be fully inferred with no
+    explicit annotations inside the function body. Verify your solution compiles cleanly under <code>strict: true</code>.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span
+        >TypeScript infers the return type of <code>map</code> from the callback's return value, producing a new typed array
+        automatically.</span
+      >
+    </li>
+    <li>
+      <span
+        ><code>filter</code> preserves the original element type by default; use a type predicate (<code>e is T</code>) to narrow a
+        union array to a specific member type.</span
+      >
+    </li>
+    <li>
+      <span
+        ><code>reduce</code> requires an explicit type argument when the accumulator shape differs from the element type, because
+        TypeScript cannot infer it from an empty literal alone.</span
+      >
+    </li>
+    <li>
+      <span
+        ><code>find</code> always returns <code>T | undefined</code>; always guard against <code>undefined</code> before accessing
+        properties on the result.</span
+      >
+    </li>
+    <li>
+      <span
+        >Type inference flows through chained array method calls, so you can write long transformation pipelines without annotating
+        intermediate variables.</span
+      >
+    </li>
+    <li>
+      <span
+        >In Excalibur, these patterns appear naturally when filtering actor lists, mapping entities to HUD data, and accumulating
+        scores across game events.</span
+      >
+    </li>
+  </ul>
+</section>

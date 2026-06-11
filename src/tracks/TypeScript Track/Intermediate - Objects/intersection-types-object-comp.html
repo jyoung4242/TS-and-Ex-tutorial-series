@@ -1,25 +1,500 @@
-<!-- Stub: Catch the Star — full content coming soon -->
+<!--
+  intersection-types.html
+  ========================
+  Track:  typescript-fundamentals
+  Module: types-and-type-system
+  Lesson: intersection-types
+
+  Register in curriculum-manifest.js:
+  {
+    id: "intersection-types",
+    title: "Intersection Types & Object Composition",
+    src: "lessons/types-and-type-system/intersection-types.html"
+  }
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Explain what an intersection type is and how it differs from a union type</li>
+    <li>Compose complex object types from smaller, reusable pieces using the <code>&amp;</code> operator</li>
+    <li>Recognize when intersection types are the right tool versus interface extension</li>
+    <li>Avoid common pitfalls when intersecting types with conflicting property definitions</li>
+    <li>Apply intersection types to real ExcaliburJS patterns like composing actor capabilities</li>
   </ul>
 </section>
 
-<h2>Catch the Star</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you are building an enemy in your game. Some enemies can fly. Some enemies shoot projectiles. Some enemies do both. If you
+  model every combination as a separate interface, your type definitions explode in number and drift out of sync the moment you add a
+  new capability. There has to be a better way to say: "this thing is
+  <em>all of these things at once</em>."
+</p>
+
+<p>
+  TypeScript's intersection type is exactly that tool. Where a union type (<code>A | B</code>) means "either A or B," an intersection
+  type (<code>A &amp; B</code>) means "both A and B, simultaneously." The result is a single type that requires every property from
+  every member, giving you precise, composable object descriptions without the copy-paste.
+</p>
+
+<p>
+  In this lesson you will build up from the simplest intersection to a multi-capability game-object pattern that maps directly to how
+  ExcaliburJS actors are structured in real projects.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>The Intersection Operator <code>&amp;</code></h2>
+
+<p>
+  An intersection type is written by placing <code>&amp;</code> between two or more types. TypeScript requires any value of that type
+  to satisfy <em>all</em> of the members at once.
+</p>
+
+<pre><code class="language-typescript">type Position = {
+  x: number;
+  y: number;
+};
+
+type Named = {
+  name: string;
+};
+
+// A value of type PositionedEntity must have x, y, AND name
+type PositionedEntity = Position &amp; Named;
+
+const enemy: PositionedEntity = {
+  x: 400,
+  y: 200,
+  name: "Goblin",
+};
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      Intersection types are structural. TypeScript does not care which <em>named type</em>
+      a property came from, only that the combined shape is fully satisfied.
+      <code>PositionedEntity</code> above behaves identically to writing the three properties out manually.
+    </p>
   </div>
 </div>
 
+<h2>Building Game Objects Through Composition</h2>
+
+<p>
+  The real power of intersections shows up when you treat your type definitions as small, focused building blocks and assemble them for
+  each actor type.
+</p>
+
+<pre><code class="language-typescript">// Focused capability types
+type HasHealth = {
+  hp: number;
+  maxHp: number;
+};
+
+type HasDamage = {
+  attackPower: number;
+  critChance: number;
+};
+
+type HasMovement = {
+  speed: number;
+  isGrounded: boolean;
+};
+
+// Compose a full enemy from individual capabilities
+type MeleeEnemy = HasHealth &amp; HasDamage &amp; HasMovement &amp; Named;
+
+const orc: MeleeEnemy = {
+  name: "Orc Warrior",
+  hp: 80,
+  maxHp: 80,
+  attackPower: 12,
+  critChance: 0.1,
+  speed: 150,
+  isGrounded: true,
+};
+</code></pre>
+
+<p>
+  Now adding a new flying enemy is a matter of defining a <code>HasFlight</code> type and intersecting it in where needed. You never
+  touch the existing pieces.
+</p>
+
+<pre><code class="language-typescript">type HasFlight = {
+  altitude: number;
+  maxAltitude: number;
+};
+
+// Flying enemy: all of melee enemy's capabilities, plus flight
+type FlyingEnemy = MeleeEnemy &amp; HasFlight;
+
+const wyvern: FlyingEnemy = {
+  name: "Wyvern",
+  hp: 120,
+  maxHp: 120,
+  attackPower: 18,
+  critChance: 0.2,
+  speed: 280,
+  isGrounded: false,
+  altitude: 0,
+  maxAltitude: 600,
+};
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Keep each building-block type small and single-purpose. A type called
+      <code>HasHealth</code> should only describe health. This makes individual pieces easy to reason about and reusable across many
+      composite types.
+    </p>
+  </div>
+</div>
+
+<h2>Intersection vs. Interface Extension</h2>
+
+<p>
+  If you have worked with <code>interface</code> before, you may notice that extending interfaces looks similar on the surface. The two
+  approaches overlap for straightforward cases, but they diverge in important ways.
+</p>
+
+<pre><code class="language-typescript">// Interface extension approach
+interface BaseActor {
+  id: string;
+}
+
+interface Enemy extends BaseActor {
+  hp: number;
+}
+
+// Intersection type approach
+type BaseActorType = { id: string };
+type EnemyType = BaseActorType &amp; { hp: number };
+</code></pre>
+
+<p>The structural result is the same. The differences become meaningful in three situations:</p>
+
+<ul>
+  <li>
+    <strong>Combining types you do not own.</strong> You cannot <code>extend</code> a <code>type</code> alias with an
+    <code>interface</code> in all positions, but you can always intersect any two types with <code>&amp;</code>.
+  </li>
+  <li>
+    <strong>Mixing interfaces and type aliases.</strong> Intersections work freely across both:
+    <code>SomeInterface &amp; SomeTypeAlias</code> is valid.
+  </li>
+  <li>
+    <strong>Conflicting property names.</strong> Interface extension raises a compile error when a property is redeclared with a
+    different type. An intersection produces <code>never</code> for that property silently (covered below).
+  </li>
+</ul>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      Prefer interface extension when you are building class hierarchies or want explicit declaration merging. Prefer intersections
+      when you are composing independent capability types, especially across type aliases you cannot reopen.
+    </p>
+  </div>
+</div>
+
+<h2>The Conflicting Property Pitfall</h2>
+
+<p>
+  When two types being intersected define the same property with incompatible types, TypeScript resolves the conflict by assigning that
+  property the type <code>never</code>. A <code>never</code> property can never be satisfied, making the whole type effectively
+  unusable for that property.
+</p>
+
+<pre><code class="language-typescript">type TypeA = {
+  id: string;
+};
+
+type TypeB = {
+  id: number; // conflicts with TypeA.id
+};
+
+type Conflict = TypeA &amp; TypeB;
+
+// TypeScript infers: { id: never }
+// No value can satisfy both string and number at once.
+
+const bad: Conflict = {
+  id: "abc", // Error: Type 'string' is not assignable to type 'never'
+};
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      TypeScript does <em>not</em> always immediately surface an error at the point where you write the intersection. The
+      <code>never</code> type may only appear when you try to assign a value. Watch out for intersection types that produce properties
+      typed as <code>never</code> in your editor's hover tooltip, as it is a sign that two members are fighting over the same property.
+    </p>
+  </div>
+</div>
+
+<p>The fix is to ensure each building-block type owns distinct properties, or to rename conflicting properties before intersecting.</p>
+
+<pre><code class="language-typescript">// Before: conflict
+type SceneA = { id: string };
+type SceneB = { id: number };
+
+// After: disambiguate with descriptive names
+type SceneA = { sceneId: string };
+type SceneB = { entityId: number };
+
+type SafeComposition = SceneA &amp; SceneB; // { sceneId: string; entityId: number }
+</code></pre>
+
+<h2>Intersection Types with Functions and Methods</h2>
+
+<p>
+  Intersection types also compose function signatures. When both sides define the same method, the result is a function that must
+  satisfy both call signatures. This is how TypeScript represents overloaded functions internally.
+</p>
+
+<pre><code class="language-typescript">type Serializable = {
+  serialize(): string;
+};
+
+type Updatable = {
+  update(delta: number): void;
+};
+
+type GameComponent = Serializable &amp; Updatable;
+
+// Any object of type GameComponent must implement both methods
+function registerComponent(component: GameComponent): void {
+  component.update(16);
+  const snapshot = component.serialize();
+  console.log("Snapshot:", snapshot);
+}
+</code></pre>
+
+<h2>Practical ExcaliburJS Pattern: Composing Actor Traits</h2>
+
+<p>
+  In ExcaliburJS, actors carry game logic through their properties and lifecycle methods. Intersection types let you describe exactly
+  which capabilities a function expects without reaching for a monolithic base class.
+</p>
+
+<pre><code class="language-typescript">import { Actor } from "excalibur";
+
+// Describe only the capabilities this function cares about
+type Damageable = {
+  hp: number;
+  takeDamage(amount: number): void;
+};
+
+type Lootable = {
+  lootTable: string[];
+  dropLoot(): void;
+};
+
+// The function signature is self-documenting:
+// it requires an Actor that is both damageable AND lootable
+function killEnemy(enemy: Actor &amp; Damageable &amp; Lootable): void {
+  enemy.takeDamage(enemy.hp); // finish it off
+  enemy.dropLoot();
+  enemy.kill();
+}
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      The concrete actor class still implements these methods at runtime. The intersection type is purely a TypeScript description used
+      to check callers at compile time. No runtime overhead is added.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The playground below sets up three capability types (<code>HasHealth</code>,
+  <code>HasSpeed</code>, and <code>HasLabel</code>) and composes them into an actor descriptor. Try adding a fourth capability type and
+  including it in the intersection to see TypeScript enforce the full shape.
+</p>
+
+<excalibur-playground label="Try It: Intersection Types as Actor Capabilities" height="520">
+  <script type="text/plain" slot="code">
+    import { Engine, Actor, Color, Vector, Font, Text, Label } from "excalibur";
+
+    // --- Capability types ---
+    type HasHealth = {
+      hp: number;
+      maxHp: number;
+    };
+
+    type HasSpeed = {
+      speed: number;
+    };
+
+    type HasLabel = {
+      displayName: string;
+    };
+
+    // Compose a full enemy descriptor
+    type EnemyDescriptor = HasHealth &amp; HasSpeed &amp; HasLabel;
+
+    // Factory: builds an Excalibur Actor from a typed descriptor
+    function spawnEnemy(desc: EnemyDescriptor, pos: Vector): Actor {
+      const actor = new Actor({
+        pos,
+        width: 40,
+        height: 40,
+        color: Color.Red,
+        vel: new Vector(desc.speed, 0),
+      });
+
+      const label = new Label({
+        text: `${desc.displayName} (${desc.hp}/${desc.maxHp})`,
+        pos: new Vector(-30, -24),
+        font: new Font({ size: 11, color: Color.White }),
+      });
+
+      actor.addChild(label);
+      return actor;
+    }
+
+    // --- Boot the game ---
+    const game = new Engine({
+      width: 600,
+      height: 300,
+      backgroundColor: Color.fromHex("#1a1a2e"),
+    });
+
+    game.start().then(() => {
+      // TypeScript enforces every property of EnemyDescriptor here
+      const goblin = spawnEnemy(
+        { displayName: "Goblin", hp: 40, maxHp: 40, speed: 80 },
+        new Vector(80, 150)
+      );
+
+      const wyvern = spawnEnemy(
+        { displayName: "Wyvern", hp: 120, maxHp: 120, speed: 160 },
+        new Vector(80, 80)
+      );
+
+      game.add(goblin);
+      game.add(wyvern);
+    });
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Weapon System with Intersection Types</div>
+  <div class="exercise__body">
+    <p>
+      You are designing the type system for a weapon pickup system in a top-down game. Each weapon has core stats, but some weapons
+      also have special properties. Model this using intersection types.
+    </p>
+    <ol>
+      <li>
+        Define a <code>BaseWeapon</code> type with properties: <code>name: string</code>, <code>damage: number</code>, and
+        <code>range: number</code>.
+      </li>
+      <li>Define a <code>HasAmmo</code> type with <code>ammo: number</code> and <code>maxAmmo: number</code>.</li>
+      <li>
+        Define a <code>HasRecoil</code> type with <code>recoil: number</code> (a 0 to 1 value representing screen shake intensity).
+      </li>
+      <li>Create a <code>Rifle</code> type that is the intersection of all three.</li>
+      <li>
+        Write a function <code>fireWeapon(weapon: Rifle): void</code> that logs the weapon name, reduces <code>ammo</code> by 1, and
+        logs the current ammo count.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript should enforce all three shapes when you create a <code>Rifle</code> value. Omitting
+      any property should produce a compile error.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Generic Capability Composer</div>
+  <p>
+    Write a generic function <code>compose&lt;A, B&gt;(a: A, b: B): A &amp; B</code>
+    that merges two objects at runtime and returns the intersection type. Use
+    <code>Object.assign</code> under the hood. Then use it to compose a <code>BaseWeapon</code> and <code>HasAmmo</code> value in a
+    single call and verify that the return type is correctly inferred as <code>BaseWeapon &amp; HasAmmo</code>
+    in your editor's hover tooltip.
+  </p>
+  <p>
+    As a stretch, make the function variadic so it accepts any number of objects and returns their full intersection type using
+    conditional types or recursive type aliases.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span
+        >The <code>&amp;</code> operator creates an intersection type that requires a value to satisfy <em>all</em> member types
+        simultaneously.</span
+      >
+    </li>
+    <li>
+      <span
+        >Intersection types enable capability-based object composition: define small, focused types and combine them only where
+        needed.</span
+      >
+    </li>
+    <li>
+      <span
+        >Intersecting two types with a property of the same name but different types produces <code>never</code> for that property,
+        making it unassignable. Always give conflicting properties distinct names.</span
+      >
+    </li>
+    <li>
+      <span
+        >Intersections work across both <code>type</code> aliases and <code>interface</code> declarations, making them more flexible
+        than interface extension when combining types you do not own.</span
+      >
+    </li>
+    <li>
+      <span
+        >In ExcaliburJS, intersection types let you describe actor capabilities precisely in function signatures without coupling logic
+        to a single class hierarchy.</span
+      >
+    </li>
   </ul>
 </section>

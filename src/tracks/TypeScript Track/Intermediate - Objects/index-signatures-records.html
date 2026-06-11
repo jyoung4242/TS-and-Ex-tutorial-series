@@ -1,25 +1,460 @@
-<!-- Stub: Catch the Star — full content coming soon -->
+<!--
+  index-signatures-and-records.html
+  ===================================
+  Track:  TypeScript Fundamentals
+  Module: Types and Data Shapes
+  Lesson: Index Signatures and Records
+
+  CONTENT ONLY — no <html>, <head>, or <body> tags.
+  Injected into <lesson-view> by lesson-view.js.
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Understand what an index signature is and when to reach for one</li>
+    <li>Declare index signatures with the correct key and value types</li>
+    <li>Use <code>Record&lt;K, V&gt;</code> as a concise, readable alternative to raw index signatures</li>
+    <li>Identify the trade-offs between index signatures, <code>Record</code>, and plain object literals in game data structures</li>
+    <li>Avoid common runtime pitfalls caused by TypeScript's optimistic assumptions about dynamic keys</li>
   </ul>
 </section>
 
-<h2>Catch the Star</h2>
-<p>This lesson is under construction. Check back soon!</p>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Games are full of dynamic data: a player's inventory keyed by item name, a
+  registry of sound effects keyed by event type, a leaderboard keyed by player
+  ID. In every one of those situations you know the <em>shape</em> of the value
+  but not the exact set of keys at compile time. A plain object literal type
+  like <code>{ sword: number; shield: number }</code> won't cut it — you'd have
+  to list every possible key up front.
+</p>
+
+<p>
+  Index signatures and the <code>Record</code> utility type solve this. They let
+  you tell TypeScript "this object can have any number of keys of type X, and
+  each value will be of type Y" without sacrificing type safety. Once you
+  understand both tools and their trade-offs, you'll reach for the right one
+  instinctively — and avoid the subtle runtime surprise that trips up most
+  developers the first time.
+</p>
+
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>Index Signatures</h2>
+
+<p>
+  An index signature describes the type of values that can be stored under
+  <em>any</em> key of a given key type. The syntax places the key in square
+  brackets with a type annotation, followed by a colon and the value type.
+</p>
+
+<pre><code class="language-typescript">
+// A general-purpose string-keyed object where every value is a number.
+interface StatBlock {
+  [stat: string]: number;
+}
+
+const enemy: StatBlock = {
+  health: 120,
+  speed: 45,
+  damage: 30,
+};
+
+// Reading a key TypeScript has never seen before is still valid.
+const armor = enemy["armor"]; // type: number
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      The identifier inside the brackets (<code>stat</code> above) is purely
+      descriptive. TypeScript ignores the name at runtime; it only matters for
+      readability.
+    </p>
   </div>
 </div>
 
+<h3>Valid Key Types</h3>
+
+<p>
+  TypeScript restricts index signature keys to <code>string</code>,
+  <code>number</code>, or <code>symbol</code>. In practice you will use
+  <code>string</code> for named lookups and <code>number</code> for
+  array-like structures.
+</p>
+
+<pre><code class="language-typescript">
+// Numeric index: useful for positional data like tile maps.
+interface TileRow {
+  [column: number]: string; // e.g. "grass" | "water" | "wall"
+}
+
+const row: TileRow = ["grass", "grass", "water", "wall"];
+const tile = row[2]; // type: string
+</code></pre>
+
+<h3>Mixing Known Keys with an Index Signature</h3>
+
+<p>
+  You can combine explicit properties with an index signature, but there is one
+  strict rule: every explicit property's value type must be assignable to the
+  index signature's value type. If the index signature says
+  <code>number</code>, every named property must also be
+  <code>number</code>.
+</p>
+
+<pre><code class="language-typescript">
+// Valid — "name" is a string, and the index signature value type is string | number.
+interface EntityData {
+  name: string;
+  [key: string]: string | number;
+}
+
+// Invalid — "name" is string, but the index signature says number only.
+// TypeScript will flag this with a type error.
+interface BrokenEntityData {
+  name: string;        // Error: Property 'name' of type 'string' is not assignable
+  [key: string]: number; // to string index type 'number'.
+}
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      With an index signature in place, TypeScript assumes every key returns a
+      value of the declared type. That means reading a key that was never set
+      returns <code>undefined</code> at runtime, but TypeScript reports the
+      type as <code>number</code> (or whatever you declared). Always check for
+      <code>undefined</code> before using a dynamically read value in
+      production code, or enable the <code>noUncheckedIndexedAccess</code>
+      compiler option to make TypeScript add <code>| undefined</code>
+      automatically.
+    </p>
+  </div>
+</div>
+
+
+<!-- ─────────────────────────────────────────────── -->
+<h2>The <code>Record</code> Utility Type</h2>
+
+<p>
+  <code>Record&lt;K, V&gt;</code> is TypeScript's built-in shorthand for an
+  object type whose keys are type <code>K</code> and whose values are type
+  <code>V</code>. Under the hood it is implemented with an index signature, but
+  the surface syntax is often cleaner, especially when the set of keys is a
+  known union rather than <code>string</code>.
+</p>
+
+<pre><code class="language-typescript">
+// Equivalent to { [key: string]: number }
+type StatBlock = Record<string, number>;
+
+// More precise: keys must be one of these specific strings.
+type ActorType = "player" | "enemy" | "npc" | "projectile";
+type SpawnCount = Record<ActorType, number>;
+
+const spawns: SpawnCount = {
+  player:     1,
+  enemy:      12,
+  npc:        4,
+  projectile: 0,
+};
+
+// TypeScript will catch a missing or misspelled key.
+// spawns.boos = 3; // Error: 'boos' does not exist in type 'SpawnCount'
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Prefer <code>Record&lt;UnionKey, V&gt;</code> over a raw index signature
+      whenever you know the complete set of valid keys. TypeScript will enforce
+      exhaustiveness — if you add a new key to the union, every
+      <code>Record</code> that uses it becomes a compile-time error until you
+      add the new entry. This is exactly the kind of safety net that catches
+      bugs when a game adds a new actor type or item category.
+    </p>
+  </div>
+</div>
+
+<h3>Record vs Index Signature: When to Use Each</h3>
+
+<p>
+  Both tools produce similar runtime objects. The choice comes down to what you
+  know about the keys at compile time.
+</p>
+
+<pre><code class="language-typescript">
+// Use an index signature when keys are truly open-ended at compile time.
+// (e.g., user-defined hotkeys loaded from a config file at runtime)
+interface HotkeyMap {
+  [action: string]: string; // action name -> key code
+}
+
+// Use Record when the key set is fixed and known.
+// (e.g., a defined set of game difficulty levels)
+type Difficulty = "easy" | "normal" | "hard" | "nightmare";
+type DifficultySettings = Record<Difficulty, { enemyScale: number; lootScale: number }>;
+
+const settings: DifficultySettings = {
+  easy:      { enemyScale: 0.5, lootScale: 1.5 },
+  normal:    { enemyScale: 1.0, lootScale: 1.0 },
+  hard:      { enemyScale: 1.5, lootScale: 0.75 },
+  nightmare: { enemyScale: 2.5, lootScale: 0.5 },
+};
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      <strong>Index signature</strong> when keys are dynamic and open-ended.
+      <strong>Record</strong> when keys are a known, finite union. Both are
+      safer than using <code>any</code> or casting to <code>object</code>.
+    </p>
+  </div>
+</div>
+
+
+<!-- ─────────────────────────────────────────────── -->
+<h2>Practical Patterns in Game Code</h2>
+
+<h3>Asset Registry</h3>
+
+<p>
+  A common Excalibur pattern is an asset registry that maps resource names to
+  loaded image or sound objects. Using <code>Record</code> with a string union
+  gives you autocomplete and a compile-time guarantee that every asset is
+  accounted for.
+</p>
+
+<pre><code class="language-typescript">
+import { ImageSource } from "excalibur";
+
+type SpriteKey =
+  | "player-idle"
+  | "player-run"
+  | "enemy-goblin"
+  | "enemy-orc"
+  | "tile-grass"
+  | "tile-water";
+
+// Every key in SpriteKey must appear — no missing sprites at startup.
+const sprites: Record<SpriteKey, ImageSource> = {
+  "player-idle":  new ImageSource("/assets/player-idle.png"),
+  "player-run":   new ImageSource("/assets/player-run.png"),
+  "enemy-goblin": new ImageSource("/assets/enemy-goblin.png"),
+  "enemy-orc":    new ImageSource("/assets/enemy-orc.png"),
+  "tile-grass":   new ImageSource("/assets/tile-grass.png"),
+  "tile-water":   new ImageSource("/assets/tile-water.png"),
+};
+
+function getSprite(key: SpriteKey): ImageSource {
+  return sprites[key]; // TypeScript knows this is always ImageSource, not undefined.
+}
+</code></pre>
+
+<h3>Dynamic Score Tracker</h3>
+
+<p>
+  For data that grows at runtime (player IDs assigned by a server, for
+  instance), an index signature is the right tool because you cannot enumerate
+  all keys ahead of time.
+</p>
+
+<pre><code class="language-typescript">
+interface ScoreBoard {
+  [playerId: string]: number;
+}
+
+const scores: ScoreBoard = {};
+
+function recordScore(playerId: string, points: number): void {
+  scores[playerId] = (scores[playerId] ?? 0) + points;
+}
+
+recordScore("player-42", 150);
+recordScore("player-99", 200);
+recordScore("player-42", 50); // now 200
+
+// Guard against a key that was never set.
+function getScore(playerId: string): number {
+  return scores[playerId] ?? 0;
+}
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      The nullish coalescing operator (<code>??</code>) is your best friend
+      when reading from index-signature objects. It handles the
+      <code>undefined</code> case cleanly without treating
+      <code>0</code> or <code>""</code> as falsy.
+    </p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The snippet below sets up a minimal Excalibur scene that uses a
+  <code>Record</code> to map actor labels to on-screen colors, and a
+  <code>ScoreBoard</code> index signature to track click counts per actor.
+  Read through the TypeScript, then experiment: add a new actor type to
+  <code>ActorColor</code> and see what TypeScript asks you to fix.
+</p>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Try It: Index Signatures and Records"
+  height="500"
+></excalibur-playground>
+
+<pre><code class="language-typescript">
+import { Engine, Actor, Color, vec } from "excalibur";
+
+// Fixed key set — Record enforces exhaustiveness.
+type ActorLabel = "hero" | "goblin" | "treasure";
+
+const actorColors: Record<ActorLabel, Color> = {
+  hero:     Color.Blue,
+  goblin:   Color.Green,
+  treasure: Color.Yellow,
+};
+
+// Open-ended key set — index signature handles runtime keys.
+interface ClickCounts {
+  [label: string]: number;
+}
+
+const clicks: ClickCounts = {};
+
+function registerClick(label: string): void {
+  clicks[label] = (clicks[label] ?? 0) + 1;
+  console.log(`${label} clicked ${clicks[label]} time(s)`);
+}
+
+const game = new Engine({ width: 600, height: 400 });
+
+(Object.keys(actorColors) as ActorLabel[]).forEach((label, i) => {
+  const actor = new Actor({
+    x: 150 + i * 150,
+    y: 200,
+    width: 60,
+    height: 60,
+    color: actorColors[label],
+  });
+
+  actor.on("pointerdown", () => registerClick(label));
+  game.add(actor);
+});
+
+game.start();
+</code></pre>
+
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Loot Table</div>
+  <div class="exercise__body">
+    <p>
+      You are designing the loot system for a dungeon crawler. Each enemy type
+      drops gold at a different rate. Your job is to model this with the right
+      TypeScript tool and write a function that looks up drop amounts safely.
+    </p>
+    <ol>
+      <li>
+        Declare a string union type <code>EnemyType</code> with at least four
+        members: <code>"slime"</code>, <code>"goblin"</code>,
+        <code>"skeleton"</code>, and <code>"dragon"</code>.
+      </li>
+      <li>
+        Create a <code>Record&lt;EnemyType, number&gt;</code> called
+        <code>goldDropTable</code> that maps each enemy type to its gold drop
+        amount.
+      </li>
+      <li>
+        Write a function <code>getGoldDrop(enemy: EnemyType): number</code>
+        that returns the gold amount for the given enemy.
+      </li>
+      <li>
+        Now add a second structure using an <strong>index signature</strong>:
+        a <code>KillLog</code> interface where string keys are enemy IDs
+        (e.g., <code>"goblin-001"</code>) and values are
+        <code>{ type: EnemyType; goldEarned: number }</code>.
+      </li>
+      <li>
+        Write a function <code>logKill(id: string, type: EnemyType): void</code>
+        that records the kill in your <code>KillLog</code>, looking up gold
+        from <code>goldDropTable</code>.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript should catch any misspelled
+      <code>EnemyType</code>, any missing entry in <code>goldDropTable</code>,
+      and any invalid key access — without a single <code>any</code> in sight.
+    </p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Safe Lookup with <code>noUncheckedIndexedAccess</code></div>
+  <p>
+    Add <code>"noUncheckedIndexedAccess": true</code> to your
+    <code>tsconfig.json</code> and revisit the <code>KillLog</code> and
+    <code>ScoreBoard</code> patterns from this lesson. TypeScript will now
+    report the value type as <code>T | undefined</code> for every index
+    signature read. Update every read site so the code compiles without
+    non-null assertions (<code>!</code>). Consider writing a generic helper
+    function <code>safeGet&lt;T&gt;(map: Record&lt;string, T&gt;, key: string, fallback: T): T</code>
+    that centralizes the <code>undefined</code> guard and works for any value
+    type.
+  </p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li><span>An index signature (<code>[key: string]: V</code>) types objects with open-ended, runtime-determined keys where values share a common shape.</span></li>
+    <li><span><code>Record&lt;K, V&gt;</code> is a cleaner alternative when the key set is a known, finite union — TypeScript enforces that every key in the union is present.</span></li>
+    <li><span>Explicit named properties can coexist with an index signature, but their value types must be assignable to the index signature's value type.</span></li>
+    <li><span>Index signatures are optimistic by default: reading an absent key returns <code>undefined</code> at runtime even though TypeScript types it as <code>V</code>. Always guard with <code>??</code> or enable <code>noUncheckedIndexedAccess</code>.</span></li>
+    <li><span>In Excalibur projects, prefer <code>Record</code> for fixed asset registries and difficulty tables, and index signatures for dynamic runtime data like score boards or kill logs.</span></li>
   </ul>
 </section>

@@ -1,0 +1,334 @@
+<!--
+  array-basics-and-typing.html
+  =============================
+  Track:  typescript-fundamentals
+  Module: arrays-and-collections
+  Lesson: array-basics-and-typing
+
+  Register in curriculum-manifest.js:
+  {
+    id: "array-basics-and-typing",
+    title: "Array Basics and Typing",
+    slug: "array-basics-and-typing",
+    src: "tracks/typescript-fundamentals/arrays-and-collections/array-basics-and-typing.html"
+  }
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Declare typed arrays in TypeScript using both <code>T[]</code> and <code>Array&lt;T&gt;</code> syntax</li>
+    <li>Understand why untyped arrays lead to runtime bugs and how TypeScript prevents them</li>
+    <li>Type arrays of objects, including arrays of game entities like actors and projectiles</li>
+    <li>Recognize and fix the <code>never[]</code> inference trap when initializing empty arrays</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Arrays are everywhere in game development. Enemy lists, projectile pools, score histories, queued sound effects — virtually every
+  system in a game engine manages collections of things. In plain JavaScript those collections are completely unguarded: you can push a
+  string into an array that was supposed to hold enemies and JavaScript will not complain until something explodes at runtime.
+</p>
+
+<p>
+  TypeScript fixes this at the type level. By annotating an array with a specific element type, the compiler enforces what goes in and
+  what comes out. That means mistakes like mixing up a health value with a damage multiplier get caught before a single frame is
+  rendered, not during a playtest session.
+</p>
+
+<p>
+  This lesson covers the two ways to declare typed arrays, how TypeScript infers element types from initialized values, and the
+  important gotcha that arises when you start with an empty array. Every example uses game-relevant data so the patterns map directly
+  to real Excalibur code.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>Declaring Typed Arrays</h2>
+
+<p>
+  TypeScript gives you two syntactically equivalent ways to declare an array type. Both are valid and you will see both in the wild, so
+  it is worth knowing them equally.
+</p>
+
+<pre><code class="language-typescript">// Syntax 1: shorthand — most common in practice
+const enemyNames: string[] = ["Slime", "Goblin", "Wraith"];
+
+// Syntax 2: generic — identical meaning, preferred in some team styles
+const enemyNames: Array&lt;string&gt; = ["Slime", "Goblin", "Wraith"];
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      Both forms compile to the same JavaScript. Pick one style per codebase and stay consistent. The shorthand <code>T[]</code> is
+      more common in TypeScript projects, while <code>Array&lt;T&gt;</code> appears more often when the element type itself is complex
+      (like a union or generic type) and the shorthand would become hard to read.
+    </p>
+  </div>
+</div>
+
+<p>
+  With strict mode enabled, TypeScript will reject any operation that violates the declared element type. Attempting to insert the
+  wrong type of value causes a compile error immediately.
+</p>
+
+<pre><code class="language-typescript">const spawnCounts: number[] = [3, 5, 12];
+
+spawnCounts.push(7);       // OK
+spawnCounts.push("seven"); // Error: Argument of type 'string' is not assignable
+                            //        to parameter of type 'number'.
+</code></pre>
+
+<h2>Type Inference on Initialized Arrays</h2>
+
+<p>
+  When you initialize an array with values, TypeScript infers the element type automatically. You do not have to write the annotation
+  at all if the initial values make the type unambiguous.
+</p>
+
+<pre><code class="language-typescript">// TypeScript infers: number[]
+const waveSizes = [4, 8, 16, 32];
+
+// TypeScript infers: string[]
+const levels = ["forest", "dungeon", "volcano", "sky-temple"];
+
+// TypeScript infers: boolean[]
+const bossDefeated = [false, false, false];
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Hover over an array variable in your editor. The inferred type appears in the tooltip. If you see something unexpected, like
+      <code>(string | number)[]</code> when you wanted <code>number[]</code>, it means the initial values contain mixed types. Add an
+      explicit annotation to lock it down.
+    </p>
+  </div>
+</div>
+
+<h2>The Empty Array Trap</h2>
+
+<p>
+  This is the most common TypeScript array mistake. When you declare an array with no initial values and no annotation, TypeScript
+  infers its type as <code>never[]</code>. That means nothing can ever be pushed into it, which is almost certainly not what you
+  intended.
+</p>
+
+<pre><code class="language-typescript">// BAD — TypeScript infers never[]
+const projectiles = [];
+
+projectiles.push({ x: 100, y: 200, speed: 5 });
+// Error: Argument of type '{ x: number; y: number; speed: number; }'
+//        is not assignable to parameter of type 'never'.
+</code></pre>
+
+<p>The fix is simple: provide an explicit type annotation whenever you initialize an empty array.</p>
+
+<pre><code class="language-typescript">// GOOD — explicitly typed, safe to push into
+interface Projectile {
+  x: number;
+  y: number;
+  speed: number;
+}
+
+const projectiles: Projectile[] = [];
+
+projectiles.push({ x: 100, y: 200, speed: 5 }); // OK
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      In game engines like Excalibur you will often create empty pools at startup and populate them later (enemy pools, particle lists,
+      active projectiles). Every one of those empty arrays needs an explicit type annotation or you will hit
+      <code>never[]</code> errors the first time you try to add an element.
+    </p>
+  </div>
+</div>
+
+<h2>Arrays of Objects and Game Entities</h2>
+
+<p>
+  Most real game data is not a primitive array. You will work with arrays of structured objects representing enemies, items, waypoints,
+  and events. Typing these works the same way: define an interface or type alias, then use it as the element type.
+</p>
+
+<pre><code class="language-typescript">interface Enemy {
+  id: number;
+  name: string;
+  health: number;
+  isAlive: boolean;
+}
+
+const enemies: Enemy[] = [
+  { id: 1, name: "Slime",  health: 30,  isAlive: true },
+  { id: 2, name: "Goblin", health: 60,  isAlive: true },
+  { id: 3, name: "Wraith", health: 120, isAlive: false },
+];
+
+// TypeScript knows each element is an Enemy
+// so accessing .health is safe and autocompleted
+const totalHealth = enemies.reduce((sum, e) => sum + e.health, 0);
+</code></pre>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The snippet below models a simple enemy wave system using typed arrays. A
+  <code>WaveEnemy</code> interface defines the shape of each entry. The active enemies array is filtered down to living targets before
+  the wave-clear check runs. Modify the health values or add new enemies and watch TypeScript enforce the shape at every step.
+</p>
+
+<pre><code class="language-typescript">import * as ex from "excalibur";
+
+interface WaveEnemy {
+  actor: ex.Actor;
+  health: number;
+  isAlive: boolean;
+}
+
+// Typed empty array — safe to push into
+const waveEnemies: WaveEnemy[] = [];
+
+function spawnWave(engine: ex.Engine): void {
+  const positions: ex.Vector[] = [
+    ex.vec(100, 100),
+    ex.vec(300, 100),
+    ex.vec(500, 100),
+  ];
+
+  for (const pos of positions) {
+    const actor = new ex.Actor({
+      pos,
+      width: 32,
+      height: 32,
+      color: ex.Color.Red,
+    });
+
+    engine.add(actor);
+
+    waveEnemies.push({
+      actor,
+      health: 30,
+      isAlive: true,
+    });
+  }
+}
+
+function dealDamage(target: WaveEnemy, amount: number): void {
+  target.health -= amount;
+  if (target.health &lt;= 0) {
+    target.isAlive = false;
+    target.actor.kill();
+  }
+}
+
+function isWaveCleared(): boolean {
+  const livingEnemies: WaveEnemy[] = waveEnemies.filter(e =&gt; e.isAlive);
+  return livingEnemies.length === 0;
+}
+</code></pre>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Try It: Typed Enemy Wave Arrays"
+  height="500"
+></excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Typed Inventory System</div>
+  <div class="exercise__body">
+    <p>
+      You are building an inventory system for a top-down RPG. Your job is to model the player's item list using typed arrays and
+      practice the patterns from this lesson.
+    </p>
+    <ol>
+      <li>
+        Define an <code>Item</code> interface with three properties: <code>name</code> (string), <code>quantity</code> (number), and
+        <code>equipped</code> (boolean).
+      </li>
+      <li>Declare an empty <code>inventory</code> array typed as <code>Item[]</code>.</li>
+      <li>Push at least three items into the inventory (a sword, a health potion, and a shield).</li>
+      <li>
+        Use <code>filter</code> to create an <code>equippedItems</code> array containing only the items where <code>equipped</code> is
+        <code>true</code>.
+      </li>
+      <li>
+        Use <code>find</code> to locate the health potion by name. Log its <code>quantity</code> to the console, guarding against the
+        <code>undefined</code>
+        case.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript compiles with no errors. The <code>equippedItems</code> variable has type
+      <code>Item[]</code> and <code>find</code> returns <code>Item | undefined</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Typed Score Leaderboard</div>
+  <p>
+    Create a <code>LeaderboardEntry</code> interface with <code>playerName</code>, <code>score</code>, and
+    <code>timestamp</code> (number, representing milliseconds since epoch). Declare a <code>readonly</code> top-three leaderboard array
+    pre-populated with three entries. Then write a <code>getTopScore</code> function that accepts a
+    <code>ReadonlyArray&lt;LeaderboardEntry&gt;</code> and returns the entry with the highest score. The function return type must be
+    <code>LeaderboardEntry | undefined</code>. Verify that TypeScript prevents you from accidentally mutating the leaderboard array
+    inside the function.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span
+        >Typed arrays are declared with <code>T[]</code> or <code>Array&lt;T&gt;</code> — both forms are equivalent and
+        interchangeable.</span
+      >
+    </li>
+    <li>
+      <span
+        >TypeScript infers element types from initialized values, but empty arrays without an annotation become
+        <code>never[]</code> and must be explicitly typed.</span
+      >
+    </li>
+
+    <li>
+      <span
+        >Arrays of objects follow the same rules: define an interface or type alias for the element shape, then use it as the array's
+        element type.</span
+      >
+    </li>
+  </ul>
+</section>

@@ -83,6 +83,61 @@ export const CURRICULUM = {
           ],
         },
         {
+          id: "arrays",
+          title: "Arrays",
+          level: "Beginner",
+          lessons: [
+            {
+              id: "array-type-basics",
+              title: "Array Type Basics",
+              file: "TypeScript Track/Beginner - Arrays/array-type-basics.html",
+              duration: "10 min",
+              difficulty: "beginner",
+            },
+            {
+              id: "array-methods-type-inference",
+              title: "Array Methods & Type Inference",
+              file: "TypeScript Track/Beginner - Arrays/array-methods-type-inference.html",
+              duration: "10 min",
+              difficulty: "beginner",
+            },
+            {
+              id: "type-predicates-with-arrays",
+              title: "Type Predicates with Arrays",
+              file: "TypeScript Track/Beginner - Arrays/type-predicates-with-arrays.html",
+              duration: "10 min",
+              difficulty: "beginner",
+            },
+            {
+              id: "readonly-arrays-immutability",
+              title: "Readonly Arrays & Immutability",
+              file: "TypeScript Track/Beginner - Arrays/readonly-arrays-immutability.html",
+              duration: "10 min",
+              difficulty: "beginner",
+            },
+            {
+              id: "tuples",
+              title: "Tuples",
+              file: "TypeScript Track/Beginner - Arrays/tuples.html",
+              duration: "10 min",
+              difficulty: "beginner",
+            },
+            {
+              id: "mapped-types-over-arrays",
+              title: "Mapped Types over Arrays",
+              file: "TypeScript Track/Beginner - Arrays/mapped-types-over-arrays.html",
+              duration: "10 min",
+              difficulty: "beginner",
+            },
+          ],
+        },
+        {
+          id: "enums",
+          title: "Enums",
+          level: "Beginner",
+          lessons: [],
+        },
+        {
           id: "functions",
           title: "Functions",
           level: "Beginner",
@@ -134,7 +189,7 @@ export const CURRICULUM = {
         {
           id: "objects",
           title: "Objects",
-          level: "Beginner/Intermediate",
+          level: "Intermediate",
           lessons: [
             {
               id: "object-type-annotations-interfaces",
@@ -157,26 +212,20 @@ export const CURRICULUM = {
               duration: "15 min",
               difficulty: "beginner",
             },
-            {
-              id: "index-signatures-records",
-              title: "Index Signatures & Records",
-              file: "TypeScript Track/Intermediate - Objects/index-signatures-records.html",
-              duration: "15 min",
-              difficulty: "beginner",
-            },
+
             {
               id: "intersection-types-object-comp",
               title: "Intersection Types & Object Composition",
               file: "TypeScript Track/Intermediate - Objects/intersection-types-object-comp.html",
               duration: "15 min",
-              difficulty: "beginner",
+              difficulty: "intermediate",
             },
             {
-              id: "discriminated-unions-tagged",
-              title: "Discriminated Unions & Tagged Unions",
-              file: "TypeScript Track/Intermediate - Objects/discriminated-unions-tagged.html",
+              id: "discriminated-unions",
+              title: "Discriminated Unions",
+              file: "TypeScript Track/Intermediate - Objects/discriminated-unions.html",
               duration: "15 min",
-              difficulty: "beginner",
+              difficulty: "intermediate",
             },
             {
               id: "type-narrowing-type-guards",
@@ -191,6 +240,32 @@ export const CURRICULUM = {
               file: "TypeScript Track/Intermediate - Objects/mapped-types-utility-types.html",
               duration: "15 min",
               difficulty: "beginner",
+            },
+          ],
+        },
+        {
+          id: "classes",
+          title: "Classes",
+          level: "Intermediate",
+          lessons: [],
+        },
+        {
+          id: "generics",
+          title: "Generics",
+          level: "Advanced",
+          lessons: [],
+        },
+        {
+          id: "utility types",
+          title: "Utility Types",
+          level: "Advanced",
+          lessons: [
+            {
+              id: "index-signatures-records",
+              title: "Index Signatures & Records",
+              file: "TypeScript Track/Advanced - Utility Types/index-signatures-records.html",
+              duration: "15 min",
+              difficulty: "intermediate",
             },
           ],
         },

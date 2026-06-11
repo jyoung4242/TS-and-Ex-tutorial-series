@@ -1,0 +1,476 @@
+<!--
+  discriminated-unions.html
+  ==========================
+  Track:  TypeScript Fundamentals
+  Module: Advanced Types
+  Lesson: Discriminated Unions
+
+  Register in curriculum-manifest.js:
+  {
+    id: "discriminated-unions",
+    title: "Discriminated Unions",
+    file: "lessons/advanced-types/discriminated-unions.html"
+  }
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Explain what a discriminated union is and why it is safer than a plain union type</li>
+    <li>Define a discriminant property and use it to narrow union members in a <code>switch</code> statement</li>
+    <li>Model game entity state (idle, moving, attacking) as a discriminated union</li>
+    <li>Use TypeScript's exhaustiveness check to catch unhandled union members at compile time</li>
+    <li>Recognize when a plain interface or optional properties should be replaced with a discriminated union</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you are building an enemy AI system. An enemy can be idle, chasing the player, or winding up an attack. Each state carries
+  different data: an idle enemy has a patrol radius, a chasing enemy has a target position, and an attacking enemy has a damage value.
+  If you reach for a single interface with a bunch of optional fields, TypeScript cannot tell you which fields are actually present at
+  runtime. You end up writing defensive checks everywhere, and the compiler stays silent even when you forget one.
+</p>
+
+<p>
+  Discriminated unions solve this cleanly. You model each state as its own type, tag every member with a shared literal property called
+  the <strong>discriminant</strong>, and then let TypeScript's narrowing do the heavy lifting. When you handle each member in a
+  <code>switch</code> block, the compiler knows exactly which fields are available inside every branch. Forget a branch? The compiler
+  tells you.
+</p>
+
+<p>
+  This pattern appears constantly in real Excalibur projects: entity state machines, event payloads, scene transition descriptors, and
+  collision result types all benefit from it. By the end of this lesson you will reach for discriminated unions naturally any time a
+  type needs to represent one of several mutually exclusive shapes.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>The Problem with Optional Fields</h2>
+
+<p>
+  Before looking at the solution, it helps to feel the pain of the alternative. Here is a naive attempt to model enemy state with a
+  single interface:
+</p>
+
+<pre><code class="language-typescript">// Naive approach — do NOT do this
+interface EnemyState {
+  kind: string;          // "idle" | "chasing" | "attacking" — but TypeScript doesn't enforce it
+  patrolRadius?: number; // only valid when idle
+  targetX?: number;      // only valid when chasing
+  targetY?: number;      // only valid when chasing
+  damage?: number;       // only valid when attacking
+}
+
+function handleState(state: EnemyState) {
+  if (state.kind === "attacking") {
+    // TypeScript thinks state.damage is number | undefined here.
+    // We MUST add a null check, but the compiler won't remind us if we forget.
+    console.log("Damage:", state.damage!); // forced non-null assertion — a code smell
+  }
+}
+</code></pre>
+
+<p>
+  The interface compiles, but it allows nonsensical combinations (an idle enemy with a
+  <code>damage</code> value, for instance). TypeScript cannot help you because it has no way to know which fields belong together.
+</p>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Using <code>!</code> (non-null assertion) to silence TypeScript is almost always a sign that the type design needs revisiting. It
+      turns off the very safety the type system is offering you.
+    </p>
+  </div>
+</div>
+
+<h2>Building a Discriminated Union</h2>
+
+<p>
+  A discriminated union is a <code>type</code> alias that joins several member types with <code>|</code>, where every member shares a
+  property with a unique literal type. That shared property is the discriminant. Here is the enemy state modelled correctly:
+</p>
+
+<pre><code class="language-typescript">// Each member is its own interface with a literal "kind" discriminant
+
+interface IdleState {
+  kind: "idle";
+  patrolRadius: number; // required, not optional
+}
+
+interface ChasingState {
+  kind: "chasing";
+  targetX: number;
+  targetY: number;
+}
+
+interface AttackingState {
+  kind: "attacking";
+  damage: number;
+  windUpMs: number;
+}
+
+// The union joins all three
+type EnemyState = IdleState | ChasingState | AttackingState;
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      The discriminant property (<code>kind</code> here) must be a <strong>literal type</strong> on each member, not just
+      <code>string</code>. Literals like <code>"idle"</code> are what allow TypeScript to narrow the union when it sees which value is
+      present.
+    </p>
+  </div>
+</div>
+
+<h2>Narrowing with a Switch Statement</h2>
+
+<p>
+  Once you have a discriminated union, narrowing is clean and readable. Inside each
+  <code>case</code> block, TypeScript automatically knows which member you are dealing with, so all of that member's fields become
+  non-optional and fully typed:
+</p>
+
+<pre><code class="language-typescript">function handleEnemyState(state: EnemyState): void {
+  switch (state.kind) {
+    case "idle":
+      // TypeScript knows state is IdleState here
+      console.log(`Patrolling within radius ${state.patrolRadius}m`);
+      break;
+
+    case "chasing":
+      // TypeScript knows state is ChasingState here
+      console.log(`Chasing target at (${state.targetX}, ${state.targetY})`);
+      break;
+
+    case "attacking":
+      // TypeScript knows state is AttackingState here
+      console.log(`Attacking for ${state.damage} damage after ${state.windUpMs}ms wind-up`);
+      break;
+  }
+}
+
+// Usage
+const enemy: EnemyState = { kind: "chasing", targetX: 400, targetY: 200 };
+handleEnemyState(enemy);
+// Output: Chasing target at (400, 200)
+</code></pre>
+
+<p>
+  No type assertions. No optional-chaining. No <code>if (state.damage !== undefined)</code>
+  guards. TypeScript has narrowed the type for you inside each branch.
+</p>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      The discriminant property name is a convention, not a keyword. <code>kind</code>, <code>type</code>, <code>tag</code>, and
+      <code>variant</code> are all common choices. Pick one name and use it consistently across your codebase.
+    </p>
+  </div>
+</div>
+
+<h2>Exhaustiveness Checking</h2>
+
+<p>
+  One of the biggest wins from discriminated unions is <strong>exhaustiveness checking</strong>. If you add a new union member later,
+  TypeScript can warn you about every <code>switch</code> statement that forgot to handle it. The pattern uses the
+  <code>never</code> type as a sentinel:
+</p>
+
+<pre><code class="language-typescript">// A small helper that enforces exhaustiveness
+function assertNever(value: never): never {
+  throw new Error(`Unhandled union member: ${JSON.stringify(value)}`);
+}
+
+function handleEnemyState(state: EnemyState): void {
+  switch (state.kind) {
+    case "idle":
+      console.log(`Patrolling within radius ${state.patrolRadius}m`);
+      break;
+    case "chasing":
+      console.log(`Chasing target at (${state.targetX}, ${state.targetY})`);
+      break;
+    case "attacking":
+      console.log(`Attacking for ${state.damage} damage`);
+      break;
+    default:
+      // If all members are handled above, state has type never here.
+      // If you add a new member and forget to handle it, this line
+      // will produce a compile-time error on the next line.
+      assertNever(state);
+  }
+}
+</code></pre>
+
+<p>Now add a new member to the union:</p>
+
+<pre><code class="language-typescript">interface StunnedState {
+  kind: "stunned";
+  durationMs: number;
+}
+
+type EnemyState = IdleState | ChasingState | AttackingState | StunnedState;
+
+// TypeScript immediately errors on the assertNever(state) call above:
+// Argument of type 'StunnedState' is not assignable to parameter of type 'never'.
+</code></pre>
+
+<p>
+  The compiler points you directly to every switch statement that needs a new
+  <code>case "stunned"</code> branch. No runtime surprises, no grepping through files.
+</p>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      <code>never</code> is the bottom type in TypeScript. A value of type <code>never</code> can never actually exist at runtime,
+      which is exactly what makes it useful here. If TypeScript allows code to reach <code>assertNever</code>, it means a case was
+      missed at the type level.
+    </p>
+  </div>
+</div>
+
+<h2>Discriminated Unions in Excalibur</h2>
+
+<p>
+  Excalibur's event and collision systems pass data objects that fit naturally into this pattern. Below is a simplified example of how
+  you might type a custom event payload system for your own game logic:
+</p>
+
+<pre><code class="language-typescript">import { Actor, Engine, CollisionStartEvent } from "excalibur";
+
+// Model different collision outcomes as a discriminated union
+interface CoinPickup {
+  kind: "coin-pickup";
+  value: number;
+}
+
+interface EnemyHit {
+  kind: "enemy-hit";
+  damage: number;
+  knockbackX: number;
+  knockbackY: number;
+}
+
+interface LevelExit {
+  kind: "level-exit";
+  nextLevel: string;
+}
+
+type CollisionOutcome = CoinPickup | EnemyHit | LevelExit;
+
+function resolveCollision(outcome: CollisionOutcome, player: Actor): void {
+  switch (outcome.kind) {
+    case "coin-pickup":
+      // TypeScript knows outcome.value is number
+      console.log(`Picked up coin worth ${outcome.value}`);
+      break;
+    case "enemy-hit":
+      // TypeScript knows outcome.damage, outcome.knockbackX, outcome.knockbackY
+      player.vel.x = outcome.knockbackX;
+      player.vel.y = outcome.knockbackY;
+      break;
+    case "level-exit":
+      // TypeScript knows outcome.nextLevel is string
+      console.log(`Transitioning to ${outcome.nextLevel}`);
+      break;
+    default:
+      assertNever(outcome);
+  }
+}
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      Excalibur's built-in event types like <code>CollisionStartEvent</code> already carry structured data. Discriminated unions are
+      the pattern you reach for when building your <em>own</em> event systems, state machines, or command queues on top of Excalibur.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The snippet below sets up a minimal Excalibur scene where a player actor cycles through three states: idle, running, and jumping. The
+  state is typed as a discriminated union. Open the playground, paste the code, and watch how TypeScript narrows the type inside each
+  <code>case</code> block. Try adding a <code>falling</code> state and see the compiler flag every unhandled switch branch.
+</p>
+
+<pre><code class="language-typescript">import { Actor, Engine, Color, vec } from "excalibur";
+
+// --- Discriminated union for player state ---
+interface IdleState   { kind: "idle" }
+interface RunningState { kind: "running"; velocityX: number }
+interface JumpingState { kind: "jumping"; jumpForce: number }
+
+type PlayerState = IdleState | RunningState | JumpingState;
+
+function assertNever(x: never): never {
+  throw new Error("Unhandled state: " + JSON.stringify(x));
+}
+
+// Applies velocity based on current state
+function applyState(player: Actor, state: PlayerState): void {
+  switch (state.kind) {
+    case "idle":
+      player.vel = vec(0, 0);
+      player.color = Color.Gray;
+      break;
+    case "running":
+      player.vel = vec(state.velocityX, 0);
+      player.color = Color.Green;
+      break;
+    case "jumping":
+      player.vel = vec(0, -state.jumpForce);
+      player.color = Color.Blue;
+      break;
+    default:
+      assertNever(state);
+  }
+}
+
+// --- Excalibur setup ---
+const game = new Engine({ width: 800, height: 600 });
+
+const player = new Actor({ x: 400, y: 300, width: 40, height: 40, color: Color.Gray });
+game.add(player);
+
+// Cycle through states every 2 seconds
+const states: PlayerState[] = [
+  { kind: "idle" },
+  { kind: "running", velocityX: 120 },
+  { kind: "jumping", jumpForce: 300 },
+];
+let stateIndex = 0;
+
+game.clock.schedule(() => {
+  stateIndex = (stateIndex + 1) % states.length;
+  applyState(player, states[stateIndex]);
+}, 2000, true);
+
+game.start();
+applyState(player, states[0]);
+</code></pre>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Try It: Discriminated Union State Machine"
+  height="500"
+></excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Model a Projectile Lifecycle</div>
+  <div class="exercise__body">
+    <p>
+      A projectile in your game passes through four stages. Your task is to model these stages as a discriminated union and write a
+      function that handles each one.
+    </p>
+    <ol>
+      <li>
+        Define four interfaces: <code>FiredState</code> (carries <code>velocityX</code> and <code>velocityY</code> as numbers),
+        <code>InFlightState</code> (carries <code>distanceTravelled</code> as a number), <code>HitState</code> (carries
+        <code>targetId</code> as a string and <code>damage</code> as a number), and <code>ExpiredState</code> (no extra fields beyond
+        the discriminant). Give each a <code>kind</code> discriminant with a matching string literal.
+      </li>
+      <li>Create a <code>ProjectileState</code> type alias that is the union of all four.</li>
+      <li>
+        Write a <code>logProjectile(state: ProjectileState): void</code> function that uses a <code>switch</code> on
+        <code>state.kind</code> and logs a descriptive message for each branch. Add <code>assertNever</code> in the
+        <code>default</code>
+        branch for exhaustiveness.
+      </li>
+      <li>
+        Call <code>logProjectile</code> with one value per state to verify all four branches produce output without TypeScript errors.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript reports zero errors, and each call logs a different message. If you comment out one
+      <code>case</code>, the compiler should flag it via <code>assertNever</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Scene Transition Command Bus</div>
+  <p>
+    Design a <code>SceneCommand</code> discriminated union that an Excalibur game could use as a command bus. Include at least five
+    distinct command types: loading a scene, pausing, resuming, saving a checkpoint, and displaying a cutscene. Each command should
+    carry only the fields that are relevant to it. Write a <code>dispatch(cmd: SceneCommand)</code> function with full exhaustiveness
+    checking. Then extend the union with a sixth command type of your own design and update <code>dispatch</code> to handle it. Verify
+    that before you add the new case, TypeScript surfaces an error on the <code>assertNever</code>
+    call.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span
+        >A discriminated union is a <code>type</code> that joins several interfaces with <code>|</code>, where each interface carries a
+        shared literal property called the discriminant.</span
+      >
+    </li>
+    <li>
+      <span
+        >TypeScript narrows the union inside a <code>switch (state.kind)</code> block, giving you full type safety for each member's
+        fields without manual guards or assertions.</span
+      >
+    </li>
+    <li>
+      <span
+        >Using optional fields on a single interface to represent mutually exclusive shapes compiles but sacrifices type safety —
+        discriminated unions are the correct model.</span
+      >
+    </li>
+    <li>
+      <span
+        >The <code>assertNever</code> pattern in the <code>default</code> branch turns a runtime concern into a compile-time error,
+        catching any unhandled union member the moment it is added.</span
+      >
+    </li>
+    <li>
+      <span
+        >In Excalibur projects, discriminated unions are the natural fit for entity state machines, custom event payloads, collision
+        outcomes, and scene command systems.</span
+      >
+    </li>
+  </ul>
+</section>

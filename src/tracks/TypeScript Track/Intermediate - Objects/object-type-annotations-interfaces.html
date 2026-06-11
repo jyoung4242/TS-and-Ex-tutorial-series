@@ -1,25 +1,401 @@
-<!-- Stub: Catch the Star — full content coming soon -->
+<!--
+  object-type-annotations.html
+  ==============================
+  Track:  TypeScript Fundamentals
+  Module: Types & Annotations
+  Lesson: Object Type Annotations
+
+  IMPORTANT:
+  - This file is CONTENT ONLY — no <html>, <head>, or <body> tags.
+  - It will be injected into the lesson-view component by lesson-view.js.
+  - The outer shell (header, nav, breadcrumbs) is handled by the app.
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Write inline object type annotations and understand when to use them</li>
+    <li>Define reusable object shapes with <code>type</code> aliases and <code>interface</code> declarations</li>
+    <li>Recognize how TypeScript uses structural typing to check object compatibility</li>
+    <li>Apply object type annotations to common Excalibur game patterns such as actor configuration and collision data</li>
   </ul>
 </section>
 
-<h2>Catch the Star</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Every game is built from objects: a player with a position and health, an enemy with a speed and patrol route, a collectible with a
+  point value and a sound effect. In plain JavaScript these objects are easy to create but easy to break — a typo in a property name, a
+  missing field, a number where a string was expected, and the bug is silent until runtime.
+</p>
+
+<p>
+  TypeScript fixes this by letting you describe the <em>shape</em> of an object before you use it. Once TypeScript knows what
+  properties an object should have, it checks every place that object is created or passed around and tells you immediately when
+  something is wrong. In this lesson you will learn the main tools for describing object shapes: inline annotations,
+  <code>type</code> aliases, and <code>interface</code> declarations.
+</p>
+
+<p>
+  You will also see how these patterns show up directly in ExcaliburJS, where almost every engine call accepts a configuration object.
+  Understanding object type annotations makes reading and writing Excalibur code significantly smoother.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>Inline Object Type Annotations</h2>
+
+<p>
+  The simplest way to annotate an object is inline, right where the variable is declared. The syntax mirrors the object literal itself:
+  property names followed by their types, separated by semicolons inside curly braces.
+</p>
+
+<pre><code class="language-typescript">
+// Inline annotation: describe the shape right on the variable
+const player: { name: string; health: number; x: number; y: number } = {
+  name: "Hero",
+  health: 100,
+  x: 0,
+  y: 0,
+};
+</code></pre>
+
+<p>
+  TypeScript now knows exactly what <code>player</code> looks like. If you try to read a property that was not declared, or assign the
+  wrong type to one that was, you get an error at edit time rather than at runtime.
+</p>
+
+<pre><code class="language-typescript">
+// Error: Property 'mana' does not exist on type '{ name: string; health: number; x: number; y: number }'
+console.log(player.mana);
+
+// Error: Type 'string' is not assignable to type 'number'
+player.health = "full";
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      Inline annotations are fine for one-off objects, but they become hard to read and impossible to reuse as the shape grows. For
+      anything you will use in more than one place, a <code>type</code> alias or <code>interface</code> is the better choice.
+    </p>
   </div>
 </div>
 
+<h2>Type Aliases for Object Shapes</h2>
+
+<p>
+  A <code>type</code> alias gives a name to any type, including object shapes. You write it once and reference it anywhere that shape
+  is needed.
+</p>
+
+<pre><code class="language-typescript">
+// Declare the shape once
+type Vector2 = {
+  x: number;
+  y: number;
+};
+
+type Actor = {
+  name: string;
+  position: Vector2;
+  speed: number;
+};
+
+// Reuse it freely
+const enemy: Actor = {
+  name: "Goblin",
+  position: { x: 200, y: 150 },
+  speed: 80,
+};
+
+function moveActor(actor: Actor, delta: Vector2): void {
+  actor.position.x += delta.x;
+  actor.position.y += delta.y;
+}
+</code></pre>
+
+<p>
+  Notice that <code>Vector2</code> is nested inside <code>Actor</code>. TypeScript checks the entire nested structure, so passing an
+  object with the wrong shape anywhere in the tree is still an error.
+</p>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Compose small, focused type aliases into larger ones rather than writing one giant flat object type. <code>Vector2</code> and
+      <code>Actor</code> are easier to read, test, and reuse separately than a single type with eight properties all at the top level.
+    </p>
+  </div>
+</div>
+
+<h2>Interfaces</h2>
+
+<p>
+  An <code>interface</code> is another way to name an object shape. The syntax is slightly different from a <code>type</code> alias,
+  and interfaces have one extra feature: they can be extended and merged, which is useful when building layered systems.
+</p>
+
+<pre><code class="language-typescript">
+interface Collidable {
+  boundingBoxWidth: number;
+  boundingBoxHeight: number;
+}
+
+interface Renderable {
+  spriteKey: string;
+  visible: boolean;
+}
+
+// Interfaces can extend one or more other interfaces
+interface GameEntity extends Collidable, Renderable {
+  id: string;
+  position: Vector2;
+}
+
+const coin: GameEntity = {
+  id: "coin-001",
+  position: { x: 400, y: 300 },
+  boundingBoxWidth: 16,
+  boundingBoxHeight: 16,
+  spriteKey: "coin-spin",
+  visible: true,
+};
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      <code>type</code> aliases can also compose using intersection types (<code>TypeA &amp; TypeB</code>), so the choice between
+      <code>type</code> and <code>interface</code> is often a matter of team convention. A common rule: use <code>interface</code> for
+      public-facing shapes that others might extend, and <code>type</code> for internal or computed shapes.
+    </p>
+  </div>
+</div>
+
+<h2>Structural Typing: Shape Over Name</h2>
+
+<p>
+  TypeScript uses <em>structural typing</em>, which means compatibility is determined by the shape of a type, not its name. If an
+  object has all the required properties with the right types, TypeScript considers it compatible, even if it was not explicitly
+  annotated as that type.
+</p>
+
+<pre><code class="language-typescript">
+type Positioned = {
+  x: number;
+  y: number;
+};
+
+function printPosition(pos: Positioned): void {
+  console.log(`x: ${pos.x}, y: ${pos.y}`);
+}
+
+// This object was never declared as Positioned
+const turret = { x: 320, y: 240, damage: 50, range: 200 };
+
+// But it is compatible because it has x and y
+printPosition(turret); // OK — extra properties are allowed when passing a variable
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Structural typing has one important exception: <strong>excess property checking</strong>. When you pass an object literal
+      directly (not through a variable), TypeScript is stricter and will reject extra properties that are not in the expected type.
+      This catches typos in configuration objects.
+    </p>
+    <pre><code class="language-typescript">
+// Error: Object literal may only specify known properties,
+// and 'damge' does not exist in type 'Positioned'
+printPosition({ x: 10, y: 20, damge: 50 });
+    </code></pre>
+  </div>
+</div>
+
+<h2>Object Types in Excalibur</h2>
+
+<p>
+  ExcaliburJS uses configuration objects extensively. Nearly every constructor and factory function accepts an options object.
+  Understanding object type annotations lets you read Excalibur's types directly and write correct configuration with full autocomplete
+  support.
+</p>
+
+<pre><code class="language-typescript">
+import { Actor, Color, Vector } from "excalibur";
+
+// Excalibur's ActorArgs is an interface with many optional properties.
+// You only supply what you need — the rest use engine defaults.
+const player = new Actor({
+  name: "player",
+  pos: new Vector(100, 200),
+  width: 32,
+  height: 32,
+  color: Color.Green,
+});
+</code></pre>
+
+<p>You can also define your own typed configuration objects that wrap or extend Excalibur patterns:</p>
+
+<pre><code class="language-typescript">
+import { Vector } from "excalibur";
+
+type EnemyConfig = {
+  readonly id: string;
+  spawnPosition: Vector;
+  health: number;
+  speed: number;
+  patrolRadius?: number;
+};
+
+function createEnemy(config: EnemyConfig): void {
+  const radius = config.patrolRadius ?? 100;
+  console.log(
+    `Enemy ${config.id} spawned at (${config.spawnPosition.x}, ${config.spawnPosition.y})` +
+    ` with patrol radius ${radius}`
+  );
+}
+
+createEnemy({
+  id: "goblin-03",
+  spawnPosition: new Vector(640, 360),
+  health: 40,
+  speed: 90,
+});
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      In VS Code, hover over any Excalibur constructor or function to see the interface it expects. This is one of the biggest
+      productivity wins from using TypeScript with a well-typed library: the documentation lives right inside your editor.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The snippet below wires up a small scene using a typed configuration object. Try adding a new optional property to
+  <code>EnemyConfig</code> (for example, <code>color?: string</code>), then use it when creating the actor. Notice how TypeScript
+  guides you through the change with autocomplete and error feedback.
+</p>
+
+<excalibur-playground
+  src="https://excaliburjs.com/playground?template=minimal"
+  label="Try It: Object Type Annotations"
+  height="500"
+></excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Design a Collectible Item System</div>
+  <div class="exercise__body">
+    <p>
+      You are building a collectible item system for a dungeon crawler. Define the types and a function that processes item pickups.
+    </p>
+    <ol>
+      <li>
+        Create a <code>type</code> alias called <code>PickupItem</code> with these properties:
+        <ul>
+          <li><code>id</code> (readonly string)</li>
+          <li><code>name</code> (string)</li>
+          <li><code>pointValue</code> (number)</li>
+          <li><code>position</code> (an inline object with <code>x</code> and <code>y</code> as numbers)</li>
+          <li><code>soundEffect</code> (optional string)</li>
+        </ul>
+      </li>
+      <li>
+        Write a function <code>collectItem</code> that accepts a <code>PickupItem</code> and a player score (<code>number</code>), logs
+        a pickup message including the item name and sound effect (if present), and returns the updated score.
+      </li>
+      <li>
+        Create two <code>PickupItem</code> objects: one coin (with a sound effect) and one health flask (without a sound effect). Pass
+        both to <code>collectItem</code> and verify that TypeScript accepts both.
+      </li>
+      <li>
+        Try adding a property that is not in <code>PickupItem</code> directly to an object literal passed into
+        <code>collectItem</code>. Observe the excess property error.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript accepts both item objects without errors, catches the excess property when passed as
+      a literal, and the function returns a correctly updated score.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Layered Configuration with Interface Extension</div>
+  <p>
+    Refactor your item system to use interfaces. Create a base
+    <code>WorldObject</code> interface with <code>id</code>, <code>position</code>, and <code>visible</code>. Then create a
+    <code>PickupItem</code> interface that extends <code>WorldObject</code> and adds the item-specific fields. Finally, create a third
+    interface <code>RarePickupItem</code> that extends <code>PickupItem</code> and adds a <code>dropChance</code> (number between 0 and
+    1) and an optional <code>glowColor</code> string. Write a function that accepts a <code>RarePickupItem</code> and logs whether it
+    should glow. Because <code>RarePickupItem</code> extends the full chain, the function must also have access to <code>id</code>,
+    <code>position</code>, and <code>pointValue</code>
+    without any extra work.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span
+        >Inline object annotations describe a shape directly on a variable, but become unwieldy for shapes used in multiple
+        places.</span
+      >
+    </li>
+    <li>
+      <span
+        ><code>type</code> aliases and <code>interface</code> declarations both give reusable names to object shapes; interfaces
+        additionally support extension and declaration merging.</span
+      >
+    </li>
+
+    <li>
+      <span
+        >TypeScript uses structural typing: an object is compatible with a type if it has at least the required properties with the
+        right types, regardless of where it was declared.</span
+      >
+    </li>
+    <li>
+      <span
+        >Excess property checking applies when object literals are passed directly, catching typos in configuration objects before they
+        become silent runtime bugs.</span
+      >
+    </li>
   </ul>
 </section>
