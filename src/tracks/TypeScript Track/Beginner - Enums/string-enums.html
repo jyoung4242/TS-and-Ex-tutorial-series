@@ -1,0 +1,442 @@
+<!--
+  string-enums.html
+  TypeScript Academy — Types & Enums Module
+  Lesson: String Enums
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Understand what string enums are and why they exist alongside numeric enums</li>
+    <li>Declare and use a string enum to replace scattered string literals in TypeScript code</li>
+    <li>Recognise the difference between a string enum, a union of string literals, and a plain object constant</li>
+    <li>Identify the reverse-mapping pitfall unique to numeric enums and explain why string enums avoid it</li>
+    <li>Apply string enums in a game context to label actor states and event types clearly</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Strings show up everywhere in game code. An actor might be in a
+  <code>"idle"</code>, <code>"running"</code>, or <code>"dead"</code> state. An event might carry a type of <code>"collision"</code> or
+  <code>"pickup"</code>. At first, those raw strings feel harmless — they are readable, they log nicely, and they work. The problem
+  appears the moment you mistype <code>"runing"</code> or rename <code>"dead"</code> to <code>"destroyed"</code> without updating every
+  reference. TypeScript cannot catch those mistakes when values are plain strings.
+</p>
+
+<p>
+  String enums solve this by binding a readable label to a fixed string value inside the type system. Once a value is declared as part
+  of a string enum, TypeScript checks every assignment and comparison against the declared set. Mistyped values become compile errors
+  instead of silent runtime bugs.
+</p>
+
+<p>
+  This lesson walks through how string enums work, where they outperform their alternatives, and how to reach for them confidently when
+  building typed game logic with ExcaliburJS.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>Declaring a String Enum</h2>
+
+<p>
+  A string enum looks exactly like a numeric enum except that each member is explicitly initialised with a string value. TypeScript
+  requires every member to have an initialiser because string enums do not auto-increment the way numeric enums do.
+</p>
+
+<pre><code class="language-typescript">
+enum ActorState {
+  Idle    = "idle",
+  Running = "running",
+  Jumping = "jumping",
+  Dead    = "dead",
+}
+
+// Usage: the variable is typed as ActorState, not string
+let playerState: ActorState = ActorState.Idle;
+console.log(playerState); // "idle"
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      The string value on the right side is what ends up in the compiled JavaScript and in your logs. The member name on the left (e.g.
+      <code>Idle</code>) is purely a TypeScript-side label — it never appears at runtime.
+    </p>
+  </div>
+</div>
+
+<h3>Using an Enum in a Function</h3>
+
+<p>
+  Once a string enum exists, you use its type exactly like any other type annotation. TypeScript will reject any value that is not a
+  declared member.
+</p>
+
+<pre><code class="language-typescript">
+enum ActorState {
+  Idle    = "idle",
+  Running = "running",
+  Jumping = "jumping",
+  Dead    = "dead",
+}
+
+function onStateChange(next: ActorState): void {
+  console.log(`State changed to: ${next}`);
+}
+
+onStateChange(ActorState.Running); // OK
+onStateChange("running");          // Error: Argument of type '"running"'
+                                   // is not assignable to parameter of
+                                   // type 'ActorState'
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      That error on the raw string <code>"running"</code> is intentional and desirable. Forcing callers to go through
+      <code>ActorState.Running</code>
+      means a rename in the enum definition is the single place you ever need to update.
+    </p>
+  </div>
+</div>
+
+<h2>String Enums vs. Numeric Enums</h2>
+
+<p>TypeScript's original enums assign numbers automatically:</p>
+
+<pre><code class="language-typescript">
+// Numeric enum — members get 0, 1, 2, ...
+enum Direction {
+  Up,
+  Down,
+  Left,
+  Right,
+}
+
+console.log(Direction.Up);   // 0
+console.log(Direction[0]);   // "Up" — reverse mapping exists!
+</code></pre>
+
+<p>
+  Numeric enums support <strong>reverse mapping</strong>: you can look up a member name from its numeric value. This sounds convenient,
+  but it means the compiled JavaScript object has twice as many keys as you declared, which can produce surprising results when you
+  iterate over an enum or serialise it.
+</p>
+
+<pre><code class="language-typescript">
+// String enum — NO reverse mapping
+enum ActorState {
+  Idle = "idle",
+  Dead = "dead",
+}
+
+// ActorState["idle"] does NOT exist — string enums are one-directional
+// This keeps the compiled output clean and predictable
+console.log(Object.keys(ActorState)); // ["Idle", "Dead"]
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      If you iterate over a numeric enum expecting only the member names, you will also get the numeric keys. String enums skip the
+      reverse mapping entirely, so <code>Object.keys(ActorState)</code> returns exactly the names you declared and nothing more.
+    </p>
+  </div>
+</div>
+
+<h2>String Enums vs. Union Types</h2>
+
+<p>A union of string literals is another common TypeScript pattern that looks similar to a string enum:</p>
+
+<pre><code class="language-typescript">
+// Union of string literals
+type ActorStateUnion = "idle" | "running" | "jumping" | "dead";
+
+// String enum
+enum ActorState {
+  Idle    = "idle",
+  Running = "running",
+  Jumping = "jumping",
+  Dead    = "dead",
+}
+</code></pre>
+
+<p>Both give you type safety on assignments and comparisons. The differences matter when you choose between them:</p>
+
+<ul>
+  <li>
+    <strong>Union types</strong> accept the raw string value (e.g. <code>"idle"</code>) wherever the type is expected. This is often
+    more ergonomic for public-facing APIs.
+  </li>
+  <li>
+    <strong>String enums</strong> reject raw string values and require the enum member reference (e.g. <code>ActorState.Idle</code>).
+    This enforces a single canonical reference point across a codebase.
+  </li>
+  <li>
+    String enums produce a real JavaScript object at runtime, meaning you can iterate over <code>ActorState</code>, store it, or pass
+    it to a function that expects an object. Union types are erased entirely at compile time.
+  </li>
+</ul>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      Prefer a union type when the set of strings is part of a public API that callers should be able to satisfy with plain string
+      literals. Prefer a string enum when you own both sides of the code and want a single named reference that travels with the
+      compiled JavaScript.
+    </p>
+  </div>
+</div>
+
+<h2>String Enums vs. <code>as const</code> Objects</h2>
+
+<p>A third alternative is a plain object marked with <code>as const</code>:</p>
+
+<pre><code class="language-typescript">
+const ActorState = {
+  Idle:    "idle",
+  Running: "running",
+  Jumping: "jumping",
+  Dead:    "dead",
+} as const;
+
+// Derive the union of values for use as a type
+type ActorStateType = typeof ActorState[keyof typeof ActorState];
+// "idle" | "running" | "jumping" | "dead"
+</code></pre>
+
+<p>
+  This pattern is popular in codebases that avoid enums for philosophical reasons (enums are not standard JavaScript). It provides the
+  same runtime object and a derived union type, but the ergonomics require a separate
+  <code>type</code> alias. String enums bundle the object and the type together in a single declaration.
+</p>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      Neither choice is universally superior. Teams that strictly follow the "TypeScript is just annotated JavaScript" philosophy often
+      prefer
+      <code>as const</code> objects. Teams that treat TypeScript as its own language often prefer string enums for their concision.
+      Either way, pick one and stay consistent.
+    </p>
+  </div>
+</div>
+
+<h2>String Enums in Switch Statements</h2>
+
+<p>
+  String enums pair especially well with <code>switch</code> statements because the compiler can check that every case is handled. If
+  you add a new state to the enum and forget to add a corresponding case, TypeScript can warn you via an exhaustiveness check.
+</p>
+
+<pre><code class="language-typescript">
+enum ActorState {
+  Idle    = "idle",
+  Running = "running",
+  Jumping = "jumping",
+  Dead    = "dead",
+}
+
+function getAnimationFrame(state: ActorState): string {
+  switch (state) {
+    case ActorState.Idle:    return "frame_idle_00";
+    case ActorState.Running: return "frame_run_00";
+    case ActorState.Jumping: return "frame_jump_00";
+    case ActorState.Dead:    return "frame_dead_00";
+    default:
+      // This branch is only reachable if a new enum member is added
+      // without a matching case above.
+      const _exhaustiveCheck: never = state;
+      return _exhaustiveCheck;
+  }
+}
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Assigning the unmatched value to a <code>never</code> variable in the <code>default</code> branch is called an
+      <strong>exhaustiveness check</strong>. If the switch is complete, TypeScript is satisfied because the default branch is
+      unreachable. If a new enum member is added and has no case, the assignment to <code>never</code> becomes a compile error,
+      alerting you immediately.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The example below models a simple actor state machine using a string enum. The actor cycles through states on a timer and renders a
+  different colour for each one. Experiment with adding a new state to the enum and see what the compiler asks you to update.
+</p>
+
+<excalibur-playground label="Try It: String Enum State Machine" height="500">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    // --- String enum for actor state ---
+    enum ActorState {
+      Idle    = "idle",
+      Running = "running",
+      Jumping = "jumping",
+      Dead    = "dead",
+    }
+
+    // Map each state to a fill colour for easy visual feedback
+    const STATE_COLOR: Record<ActorState, ex.Color> = {
+      [ActorState.Idle]:    ex.Color.Blue,
+      [ActorState.Running]: ex.Color.Green,
+      [ActorState.Jumping]: ex.Color.Yellow,
+      [ActorState.Dead]:    ex.Color.Red,
+    };
+
+    // Ordered cycle so the demo progresses automatically
+    const STATE_CYCLE: ActorState[] = [
+      ActorState.Idle,
+      ActorState.Running,
+      ActorState.Jumping,
+      ActorState.Dead,
+    ];
+
+    class Player extends ex.Actor {
+      private state: ActorState = ActorState.Idle;
+      private stateIndex: number = 0;
+      private elapsed: number = 0;
+      private readonly interval: number = 1200; // ms per state
+
+      constructor() {
+        super({ x: 200, y: 150, width: 60, height: 60, color: ex.Color.Blue });
+      }
+
+      onPreUpdate(_engine: ex.Engine, delta: number): void {
+        this.elapsed += delta;
+        if (this.elapsed >= this.interval) {
+          this.elapsed = 0;
+          this.stateIndex = (this.stateIndex + 1) % STATE_CYCLE.length;
+          this.transitionTo(STATE_CYCLE[this.stateIndex]);
+        }
+      }
+
+      private transitionTo(next: ActorState): void {
+        this.state = next;
+        this.color = STATE_COLOR[next];
+        console.log(`State: ${this.state}`);
+      }
+    }
+
+    const game = new ex.Engine({ width: 400, height: 300 });
+    game.add(new Player());
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Typed Event Labels</div>
+  <div class="exercise__body">
+    <p>
+      A common game pattern is dispatching typed events between systems. Your task is to replace unsafe string literals with a string
+      enum.
+    </p>
+    <ol>
+      <li>
+        Declare a string enum called <code>GameEvent</code> with at least four members: <code>PlayerSpawned</code>,
+        <code>EnemyDefeated</code>, <code>ItemPickedUp</code>, and <code>LevelComplete</code>. Assign each a lowercase kebab-case
+        string value (e.g. <code>"enemy-defeated"</code>).
+      </li>
+      <li>
+        Write a function <code>dispatch(event: GameEvent, payload?: object): void</code>
+        that logs the event value and the payload.
+      </li>
+      <li>
+        Call <code>dispatch</code> with at least two different <code>GameEvent</code> members and verify the output in the console.
+      </li>
+      <li>Try passing a raw string (e.g. <code>"item-picked-up"</code>) to <code>dispatch</code> and observe the compile error.</li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> The function compiles and logs each event's string value. The raw string call produces a
+      TypeScript error without any <code>@ts-ignore</code> or type cast.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Exhaustive Event Handler</div>
+  <p>
+    Extend your <code>GameEvent</code> enum with two more members: <code>BossFightStarted</code> and <code>GameOver</code>. Write a
+    function <code>handleEvent(event: GameEvent): string</code> that uses a <code>switch</code> statement with an exhaustiveness check
+    in the <code>default</code> branch. The function should return a human-readable description for each event. Confirm that adding a
+    new enum member without a matching case produces a compile error pointing at the <code>never</code>
+    assignment.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span
+        >A string enum binds a TypeScript label to a fixed string value, letting the compiler catch typos and missing updates at build
+        time.</span
+      >
+    </li>
+    <li>
+      <span
+        >Unlike numeric enums, string enums have no reverse mapping, so iterating over them produces only the member names you
+        declared.</span
+      >
+    </li>
+    <li>
+      <span
+        >String enums reject raw string values at assignment and call sites; callers must reference the enum member, which creates a
+        single source of truth for the value.</span
+      >
+    </li>
+    <li>
+      <span
+        >Union types are a lighter-weight alternative when callers should be able to pass plain string literals;
+        <code>as const</code> objects are an alternative when you want to stay closer to plain JavaScript.</span
+      >
+    </li>
+    <li>
+      <span
+        >Pairing a string enum with a <code>switch</code> exhaustiveness check ensures every member is handled and turns missing cases
+        into compile errors rather than silent runtime bugs.</span
+      >
+    </li>
+  </ul>
+</section>

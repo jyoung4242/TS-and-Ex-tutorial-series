@@ -1,25 +1,413 @@
-<!-- Stub: UNDER CONSTRUCTION — full content coming soon -->
+<!--
+  type-predicates-arrays.html
+  ============================
+  Track:  TypeScript Fundamentals
+  Module: Functions
+  Lesson: Type Predicates with Arrays
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Explain what a type predicate is and how it differs from a regular boolean-returning function</li>
+    <li>Write a user-defined type guard using the <code>value is Type</code> return syntax</li>
+    <li>Use type predicates with <code>Array.filter()</code> to produce a narrowed array type</li>
+    <li>Identify when TypeScript needs a type predicate instead of an inline type assertion</li>
+    <li>Apply type predicates to filter mixed arrays in an ExcaliburJS game loop</li>
   </ul>
 </section>
 
-<h2>UNDER CONSTRUCTION</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you have an array of game entities: some are <code>Player</code> objects, some are <code>Enemy</code> objects, and some might
+  be <code>null</code> placeholders left behind after entities were removed. You want to filter the array down to only the live enemies
+  before running collision logic. You call <code>.filter()</code>, but TypeScript still thinks the result contains <code>null</code>.
+  Why?
+</p>
+
+<p>
+  The problem is that <code>.filter()</code> accepts a predicate that returns <code>boolean</code>, and TypeScript does not
+  automatically narrow the array element type based on what a plain boolean tells it. To close this gap, TypeScript provides
+  <strong>type predicates</strong>: a special function return annotation that says "if this function returns true, the argument is this
+  specific type." This lesson covers exactly how to write and use them.
+</p>
+
+<p>
+  You will see this pattern constantly in real codebases: filtering nullable values out of arrays, separating a union into typed
+  buckets, and tagging entity collections in game loops. Getting comfortable with it now will make working with arrays of mixed types
+  feel natural.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>What Is a Type Predicate?</h2>
+
+<p>
+  A type predicate is a return type annotation on a function that takes the form
+  <code>parameterName is SomeType</code>. When TypeScript sees this annotation it treats the function as a <strong>type guard</strong>:
+  inside any branch where the function returned <code>true</code>, TypeScript narrows the type of the checked variable to
+  <code>SomeType</code>.
+</p>
+
+<pre><code class="language-typescript">
+// A plain boolean guard — TypeScript does NOT narrow based on this
+function isStringPlain(value: unknown): boolean {
+  return typeof value === "string";
+}
+
+// A type predicate — TypeScript DOES narrow based on this
+function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
+
+const input: unknown = "hello";
+
+if (isString(input)) {
+  // TypeScript knows input is string here
+  console.log(input.toUpperCase()); // OK
+}
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      The <code>value is Type</code> syntax only appears in the <em>return type</em> position. The function body still returns a
+      regular <code>boolean</code> at runtime. TypeScript uses the annotation purely for static analysis.
+    </p>
   </div>
 </div>
 
+<h2>The Problem with <code>.filter()</code> and Union Types</h2>
+
+<p>
+  Arrays in TypeScript often hold union types. After filtering, you expect a narrower type, but TypeScript cannot infer that from a
+  plain <code>boolean</code>-returning callback.
+</p>
+
+<pre><code class="language-typescript">
+type Entity = Player | Enemy | null;
+
+const entities: Entity[] = [
+  new Player(),
+  null,
+  new Enemy(),
+  null,
+  new Enemy(),
+];
+
+// TypeScript infers: (Player | Enemy | null)[]  — not what we want
+const withoutNulls = entities.filter((e) => e !== null);
+</code></pre>
+
+<p>
+  Even though the runtime result never contains <code>null</code>, the type of <code>withoutNulls</code> is still
+  <code>(Player | Enemy | null)[]</code>. Any code that uses it still has to handle <code>null</code>. This is where a type predicate
+  fixes things.
+</p>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Using a type assertion like <code>as (Player | Enemy)[]</code> after <code>.filter()</code>
+      silences the error but gives TypeScript no information. If your filter logic has a bug, the assertion hides it. A type predicate
+      is safer because it ties the narrowing to real runtime logic.
+    </p>
+  </div>
+</div>
+
+<h2>Writing a Type Predicate for <code>.filter()</code></h2>
+
+<p>
+  Rewrite the callback so its return type is a type predicate instead of <code>boolean</code>. TypeScript then uses that annotation to
+  narrow the element type of the resulting array.
+</p>
+
+<pre><code class="language-typescript">
+// Type predicate: "if this returns true, e is Player | Enemy"
+function isEntity(e: Entity): e is Player | Enemy {
+  return e !== null;
+}
+
+// TypeScript now infers: (Player | Enemy)[]
+const activeEntities = entities.filter(isEntity);
+
+// No null checks needed — TypeScript knows
+activeEntities.forEach((entity) => {
+  entity.update(); // safe
+});
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Name your predicate functions after what they confirm, not what they reject.
+      <code>isEnemy()</code> is clearer than <code>notNull()</code> when reading a <code>.filter()</code> chain.
+    </p>
+  </div>
+</div>
+
+<h2>Narrowing to a Specific Subtype</h2>
+
+<p>Type predicates are especially useful when you want to split a union array into typed buckets for separate processing.</p>
+
+<pre><code class="language-typescript">
+type Actor = Player | Enemy | Pickup;
+
+function isEnemy(actor: Actor): actor is Enemy {
+  return actor instanceof Enemy;
+}
+
+function isPickup(actor: Actor): actor is Pickup {
+  return actor instanceof Pickup;
+}
+
+const actors: Actor[] = getActors();
+
+const enemies: Enemy[]  = actors.filter(isEnemy);
+const pickups: Pickup[] = actors.filter(isPickup);
+
+// Each array has a precise type — no casting required
+enemies.forEach((e) => e.patrol());
+pickups.forEach((p) => p.respawn());
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      A type predicate tells TypeScript what the type <em>is</em>, not what it is not. Write the affirmative:
+      <code>actor is Enemy</code>, and let the filter do the negative work at runtime.
+    </p>
+  </div>
+</div>
+
+<h2>Inline Type Predicates with Arrow Functions</h2>
+
+<p>
+  You can also write a type predicate inline as an arrow function. The syntax is the same; the return type annotation goes after the
+  parameter list.
+</p>
+
+<pre><code class="language-typescript">
+const enemies = actors.filter(
+  (actor): actor is Enemy => actor instanceof Enemy
+);
+</code></pre>
+
+<p>This is concise for one-off filters. For predicates you reuse across the codebase, a named function is easier to read and test.</p>
+
+<h2>Combining Type Predicates with Optional Chaining</h2>
+
+<p>A common real-world pattern combines a null check with an <code>instanceof</code> check inside a single predicate.</p>
+
+<pre><code class="language-typescript">
+type MaybeActor = Actor | undefined | null;
+
+function isEnemy(value: MaybeActor): value is Enemy {
+  return value instanceof Enemy; // instanceof returns false for null/undefined
+}
+
+const rawSlots: MaybeActor[] = scene.getSlots();
+const enemies: Enemy[] = rawSlots.filter(isEnemy);
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      <code>instanceof</code> already returns <code>false</code> for <code>null</code> and <code>undefined</code>, so you rarely need
+      an explicit null check inside a predicate that uses <code>instanceof</code>.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The game below spawns a mixed array of actors: some <code>Enemy</code> actors and some <code>Pickup</code> actors. A type predicate
+  filters them into separate typed arrays each frame. Watch the console output to see the narrowed types in action, then try modifying
+  the predicate to change which actors get processed.
+</p>
+
+<excalibur-playground label="Try It: Type Predicates with Actor Arrays" height="520">
+  <script type="text/plain" slot="code">
+    import {
+      Engine,
+      Actor,
+      Color,
+      vec,
+      DisplayMode,
+    } from "excalibur";
+
+    // ── Types ────────────────────────────────────────
+    class EnemyActor extends Actor {
+      public readonly kind = "enemy" as const;
+      constructor(x: number) {
+        super({ x, y: 150, width: 30, height: 30, color: Color.Red });
+      }
+      patrol(): void {
+        console.log(`Enemy at x=${Math.round(this.pos.x)} patrolling`);
+      }
+    }
+
+    class PickupActor extends Actor {
+      public readonly kind = "pickup" as const;
+      constructor(x: number) {
+        super({ x, y: 250, width: 20, height: 20, color: Color.Yellow });
+      }
+      collect(): void {
+        console.log(`Pickup at x=${Math.round(this.pos.x)} collected`);
+      }
+    }
+
+    type GameActor = EnemyActor | PickupActor;
+
+    // ── Type Predicates ──────────────────────────────
+    function isEnemy(actor: GameActor): actor is EnemyActor {
+      return actor.kind === "enemy";
+    }
+
+    function isPickup(actor: GameActor): actor is PickupActor {
+      return actor.kind === "pickup";
+    }
+
+    // ── Game Setup ───────────────────────────────────
+    const game = new Engine({
+      width: 600,
+      height: 400,
+      displayMode: DisplayMode.FitContainer,
+      backgroundColor: Color.fromHex("#1a1a2e"),
+    });
+
+    // Mix of enemies and pickups
+    const actors: GameActor[] = [
+      new EnemyActor(100),
+      new PickupActor(200),
+      new EnemyActor(300),
+      new PickupActor(400),
+      new EnemyActor(500),
+    ];
+
+    actors.forEach((a) => game.add(a));
+
+    // Filter using type predicates — each result is fully typed
+    const enemies: EnemyActor[]  = actors.filter(isEnemy);
+    const pickups: PickupActor[] = actors.filter(isPickup);
+
+    console.log(`Enemies: ${enemies.length}, Pickups: ${pickups.length}`);
+    enemies.forEach((e) => e.patrol());
+    pickups.forEach((p) => p.collect());
+
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Filter a Mixed Entity Array</div>
+  <div class="exercise__body">
+    <p>
+      You have an array of <code>Actor | null</code> values representing a game scene. Your job is to write a type predicate and use it
+      to filter the array into a clean, null-free typed result.
+    </p>
+    <ol>
+      <li>
+        Define a union type <code>SceneItem = Actor | null</code> and create an array <code>const scene: SceneItem[]</code> with a mix
+        of <code>Actor</code> instances and <code>null</code> values.
+      </li>
+      <li>
+        Write a type predicate function <code>isActor(item: SceneItem): item is Actor</code> that returns <code>true</code> only when
+        the item is not null.
+      </li>
+      <li>
+        Use <code>scene.filter(isActor)</code> and assign the result to a variable. Hover over the variable in your editor to confirm
+        TypeScript infers <code>Actor[]</code>, not <code>(Actor | null)[]</code>.
+      </li>
+      <li>Call a method on each actor in the filtered array without any null checks. Confirm TypeScript does not raise an error.</li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> The filtered variable has type <code>Actor[]</code>
+      and you can call actor methods on its elements without null guards or type assertions.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Build a Generic Non-Nullable Filter</div>
+  <p>
+    Write a generic type predicate function <code>isDefined&lt;T&gt;</code> that works for any type, filtering out
+    <code>null</code> and <code>undefined</code> from an array in one step. The signature should look something like:
+  </p>
+  <pre><code class="language-typescript">
+function isDefined&lt;T&gt;(value: T | null | undefined): value is T {
+  // your implementation
+}
+  </code></pre>
+  <p>
+    Use it to filter three different arrays: <code>(string | null)[]</code>, <code>(number | undefined)[]</code>, and
+    <code>(Enemy | null | undefined)[]</code>. Confirm TypeScript infers the correct narrowed type for each result without any
+    additional annotations.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span
+        >A type predicate uses the <code>value is Type</code> return annotation to tell TypeScript what type a variable is when the
+        function returns true.</span
+      >
+    </li>
+    <li>
+      <span
+        ><code>.filter()</code> with a plain boolean callback does not narrow the array element type; a type predicate callback
+        does.</span
+      >
+    </li>
+    <li>
+      <span>Named predicate functions keep <code>.filter()</code> chains readable and are easy to reuse and unit-test.</span>
+    </li>
+    <li>
+      <span
+        >You can write inline arrow-function type predicates for one-off filters:
+        <code>(x): x is Enemy => x instanceof Enemy</code>.</span
+      >
+    </li>
+    <li>
+      <span
+        >Type predicates let you split a union array into fully typed buckets without casting, keeping type safety intact through the
+        rest of your code.</span
+      >
+    </li>
   </ul>
 </section>

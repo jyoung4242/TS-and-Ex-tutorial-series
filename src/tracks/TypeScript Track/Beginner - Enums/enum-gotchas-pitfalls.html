@@ -1,0 +1,574 @@
+<!--
+  enum-gotchas.html
+  TypeScript Academy — Track: TypeScript Fundamentals
+  Module: Types & Values
+  Lesson: Enum Gotchas & Pitfalls
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Explain why numeric enums allow reverse mapping and why that can produce unexpected runtime values</li>
+    <li>Recognize when an enum member's value has been implicitly computed and could silently shift if the enum is reordered</li>
+    <li>Distinguish the type safety differences between numeric enums, string enums, and <code>const</code> enums</li>
+    <li>Identify situations where a union of string literals is a safer alternative to an enum</li>
+    <li>Apply <code>const enum</code> correctly and understand the tradeoffs around declaration files and ambient contexts</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Enums look like a clean solution: a named set of values, grouped together, easy to read. They are one of the most commonly
+  reached-for TypeScript features, especially when modeling things like game states, enemy types, or input directions. But enums carry
+  a set of behaviors that surprise even experienced TypeScript developers, and several of those surprises show up at runtime in ways
+  the compiler will not warn you about.
+</p>
+
+<p>
+  This lesson walks through the most common enum pitfalls, what actually happens under the hood, and the alternatives you can use when
+  enum semantics become a liability. The Excalibur examples throughout this lesson reflect patterns you will encounter in real game
+  code: direction enums, actor state machines, event type registries, and component flags.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 1: Numeric Enum Reverse Mapping
+     ═══════════════════════════════════════════════ -->
+<h2>Pitfall 1: Numeric Enums Have Reverse Mapping</h2>
+
+<p>
+  When you compile a numeric enum, TypeScript emits a JavaScript object that maps names to numbers
+  <em>and</em> numbers back to names. This reverse mapping is a runtime feature, not just a type system artifact.
+</p>
+
+<pre><code class="language-typescript">
+enum Direction {
+  Up,
+  Down,
+  Left,
+  Right,
+}
+
+// At runtime, the compiled object looks like this:
+// {
+//   Up: 0,    Down: 1,  Left: 2,  Right: 3,
+//   0: "Up",  1: "Down", 2: "Left", 3: "Right"
+// }
+
+console.log(Direction[0]);   // "Up"
+console.log(Direction["Up"]); // 0
+</code></pre>
+
+<p>
+  The reverse mapping exists so you can log a friendly name at runtime. That sounds useful, but it creates a serious type-safety hole:
+  TypeScript accepts any number as a valid enum value, even numbers that do not correspond to any member.
+</p>
+
+<pre><code class="language-typescript">
+enum Direction {
+  Up,
+  Down,
+  Left,
+  Right,
+}
+
+function move(dir: Direction): void {
+  console.log("Moving:", Direction[dir]);
+}
+
+move(Direction.Up); // Fine: "Moving: Up"
+move(99);           // Also fine at compile time! Logs: "Moving: undefined"
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning: Numbers slip through numeric enums</div>
+    <p>
+      TypeScript's type checker allows any <code>number</code> to be assigned to a numeric enum type. If you pass a raw number where an
+      enum is expected, the compiler will not complain, but your runtime behavior may be undefined or silently wrong.
+    </p>
+  </div>
+</div>
+
+<h3>The Excalibur Angle</h3>
+
+<p>
+  Suppose you model an enemy's AI state with a numeric enum in an Excalibur game. A serialized save file or a network message could
+  send back an integer that no longer maps to a valid state because the enum was reordered in a later build. The game receives
+  <code>3</code>, which used to mean <code>Attacking</code> but now maps to <code>undefined</code> after you added a new state between
+  members.
+</p>
+
+<pre><code class="language-typescript">
+// Version 1 of your code
+enum EnemyState {
+  Idle,      // 0
+  Patrol,    // 1
+  Attacking, // 2
+}
+
+// Version 2 — you added Chasing in the middle
+enum EnemyState {
+  Idle,      // 0
+  Patrol,    // 1
+  Chasing,   // 2  <-- new member shifted everything below it
+  Attacking, // 3  <-- was 2, now 3
+}
+
+// Any saved value of 2 now silently means the wrong thing
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      Inserting a member into the middle of a numeric enum silently renumbers every member that follows it. If those values ever leave
+      your process (saves, network, logs), deserialization will silently produce wrong results.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2: String Enums Fix the Reverse Mapping Problem
+     ═══════════════════════════════════════════════ -->
+<h2>Pitfall 2: String Enums Are Safer but Still Nominal</h2>
+
+<p>
+  String enums do not get reverse mapping. Each member has an explicit string value, which means reordering members never silently
+  changes anything, and the emitted object only maps names to strings (not the other way around).
+</p>
+
+<pre><code class="language-typescript">
+enum EnemyState {
+  Idle      = "IDLE",
+  Patrol    = "PATROL",
+  Chasing   = "CHASING",
+  Attacking = "ATTACKING",
+}
+
+// No reverse mapping:
+// { Idle: "IDLE", Patrol: "PATROL", Chasing: "CHASING", Attacking: "ATTACKING" }
+
+// Reordering members does NOT change values
+// Safe to serialize and deserialize
+</code></pre>
+
+<p>
+  However, string enums are <em>nominal</em>, not structural. This means a plain string that matches an enum member's value is not
+  assignable to the enum type, even if the string is identical.
+</p>
+
+<pre><code class="language-typescript">
+enum EnemyState {
+  Idle = "IDLE",
+}
+
+function setState(s: EnemyState): void { /* ... */ }
+
+setState(EnemyState.Idle); // OK
+setState("IDLE");           // Error: Argument of type '"IDLE"' is not assignable
+                            // to parameter of type 'EnemyState'
+</code></pre>
+
+<p>
+  This nominality cuts both ways. It prevents accidental mismatches, but it also means you cannot easily construct an
+  <code>EnemyState</code> from a string you received from outside your codebase without an explicit cast or a type guard.
+</p>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip: Validate at the boundary</div>
+    <p>
+      When reading enum-shaped values from an external source (a config file, a network response, a save file), write a small
+      validation function that narrows the raw string into the enum type rather than casting with <code>as EnemyState</code>. This
+      keeps the rest of your code genuinely type-safe.
+    </p>
+  </div>
+</div>
+
+<pre><code class="language-typescript">
+enum EnemyState {
+  Idle      = "IDLE",
+  Patrol    = "PATROL",
+  Attacking = "ATTACKING",
+}
+
+function isEnemyState(value: string): value is EnemyState {
+  return Object.values(EnemyState).includes(value as EnemyState);
+}
+
+const raw = "PATROL"; // Comes from a config file
+
+if (isEnemyState(raw)) {
+  // raw is narrowed to EnemyState here
+  console.log("Valid state:", raw);
+} else {
+  console.error("Unknown state:", raw);
+}
+</code></pre>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3: const enum Surprises
+     ═══════════════════════════════════════════════ -->
+<h2>Pitfall 3: <code>const enum</code> Inlines Values at Compile Time</h2>
+
+<p>
+  A <code>const enum</code> instructs TypeScript to erase the enum object entirely and inline each member's numeric or string value
+  directly at every use site. No JavaScript object is emitted at all.
+</p>
+
+<pre><code class="language-typescript">
+const enum ActorLayer {
+  Background = 0,
+  Terrain    = 1,
+  Enemies    = 2,
+  Player     = 3,
+  HUD        = 4,
+}
+
+// This TypeScript:
+const layer = ActorLayer.Player;
+
+// Compiles to this JavaScript:
+const layer = 3;
+</code></pre>
+
+<p>
+  This produces smaller output and removes an object lookup at runtime. For performance-sensitive game code with many layer or flag
+  comparisons, that matters. But <code>const enum</code>
+  has traps of its own.
+</p>
+
+<h3>Trap: <code>const enum</code> Does Not Work Across Module Boundaries in Certain Toolchains</h3>
+
+<p>
+  When you use a bundler that transpiles TypeScript files in isolation (esbuild, Babel, SWC), each file is compiled without knowledge
+  of other files. If a <code>const enum</code> is defined in one file and used in another, the bundler cannot inline the value because
+  it has not seen the definition. The result is a reference to an object that does not exist at runtime.
+</p>
+
+<pre><code class="language-typescript">
+// actor-layers.ts
+export const enum ActorLayer {
+  Background = 0,
+  Player     = 3,
+}
+
+// game-scene.ts (compiled in isolation by esbuild)
+import { ActorLayer } from "./actor-layers";
+
+const layer = ActorLayer.Player;
+// esbuild may emit: const layer = ActorLayer.Player;
+// But ActorLayer is never defined — runtime error!
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning: <code>const enum</code> and isolated transpilation do not mix</div>
+    <p>
+      If your build pipeline uses esbuild, Babel, or Vite (which uses esbuild under the hood), avoid <code>const enum</code> in shared
+      modules. Use a regular <code>enum</code> or a plain object with <code>as const</code> instead.
+    </p>
+  </div>
+</div>
+
+<h3>Trap: You Cannot Iterate a <code>const enum</code></h3>
+
+<p>
+  Because no object is emitted, you cannot call <code>Object.values()</code> or <code>Object.keys()</code> on a
+  <code>const enum</code> at runtime. If you need to iterate members (to populate a dropdown, register handlers, or validate input), a
+  <code>const enum</code>
+  is the wrong tool.
+</p>
+
+<pre><code class="language-typescript">
+const enum ActorLayer {
+  Background = 0,
+  Player     = 3,
+}
+
+// This does not work — ActorLayer does not exist at runtime
+Object.values(ActorLayer).forEach(layer => {
+  console.log(layer); // ReferenceError: ActorLayer is not defined
+});
+</code></pre>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 4: The Object as const Alternative
+     ═══════════════════════════════════════════════ -->
+<h2>The Better Alternative: <code>as const</code> Objects</h2>
+
+<p>
+  For many use cases, a plain object with <code>as const</code> gives you everything you want from an enum: named constants, a stable
+  value set, and a derived type you can use for annotations. It works in every toolchain, supports iteration, and avoids all of the
+  traps described above.
+</p>
+
+<pre><code class="language-typescript">
+const ActorLayer = {
+  Background: 0,
+  Terrain:    1,
+  Enemies:    2,
+  Player:     3,
+  HUD:        4,
+} as const;
+
+// Derive a type from the values
+type ActorLayer = typeof ActorLayer[keyof typeof ActorLayer];
+// ActorLayer = 0 | 1 | 2 | 3 | 4
+
+function setLayer(actor: Actor, layer: ActorLayer): void {
+  actor.z = layer;
+}
+
+setLayer(player, ActorLayer.Player); // OK
+setLayer(player, 99);                // Error: 99 is not assignable to ActorLayer
+</code></pre>
+
+<p>You also get safe iteration:</p>
+
+<pre><code class="language-typescript">
+const ActorLayer = {
+  Background: 0,
+  Terrain:    1,
+  Enemies:    2,
+  Player:     3,
+  HUD:        4,
+} as const;
+
+// Iterate at runtime — this works fine
+Object.entries(ActorLayer).forEach(([name, z]) => {
+  console.log(`Layer "${name}" has z-index ${z}`);
+});
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note: Enums are not always wrong</div>
+    <p>
+      If your project compiles with <code>tsc</code> directly (not an isolated transpiler), and you do not need to iterate members,
+      string enums with explicit values are safe and readable. The goal is not to avoid enums entirely, but to understand when their
+      specific behaviors become a liability.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 5: Union of Literals
+     ═══════════════════════════════════════════════ -->
+<h2>When a Union of Literals Is Enough</h2>
+
+<p>
+  For many scenarios, especially function parameters and component props, a union of string literals is the simplest correct choice. No
+  object is emitted, no runtime surprises, and the type is entirely self-documenting.
+</p>
+
+<pre><code class="language-typescript">
+// Instead of:
+enum EnemyType {
+  Goblin  = "GOBLIN",
+  Orc     = "ORC",
+  Dragon  = "DRAGON",
+}
+
+// You can write:
+type EnemyType = "GOBLIN" | "ORC" | "DRAGON";
+
+function spawnEnemy(type: EnemyType, scene: Scene): Actor {
+  // ...
+}
+
+spawnEnemy("GOBLIN", scene); // Works directly — no EnemyType.Goblin needed
+spawnEnemy("TROLL", scene);  // Error: '"TROLL"' is not assignable to type 'EnemyType'
+</code></pre>
+
+<p>
+  The downside: you lose the grouping that an enum provides, and refactoring all occurrences of
+  <code>"GOBLIN"</code> across a large codebase is slightly harder than renaming <code>EnemyType.Goblin</code>. For small, stable sets
+  of values, the tradeoff almost always favors the union type. For large or frequently-referenced sets, the
+  <code>as const</code> object pattern gives you the best of both worlds.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The playground below models a simple actor state machine using an <code>as const</code> object instead of a numeric enum. Notice that
+  the state type is derived directly from the object's values, and you can iterate over states to register handlers without any runtime
+  errors.
+</p>
+
+<excalibur-playground label="Try It: Enum Alternatives in Actor State" height="540">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    // Safe alternative to a numeric enum
+    const ActorState = {
+      Idle:      "IDLE",
+      Patrolling: "PATROLLING",
+      Attacking: "ATTACKING",
+      Dead:      "DEAD",
+    } as const;
+
+    type ActorState = typeof ActorState[keyof typeof ActorState];
+
+    // Iterate at runtime — works fine with as const objects
+    console.log("All states:");
+    Object.values(ActorState).forEach(state => console.log(" -", state));
+
+    class Enemy extends ex.Actor {
+      private state: ActorState = ActorState.Idle;
+
+      setState(next: ActorState): void {
+        console.log(`Transition: ${this.state} -> ${next}`);
+        this.state = next;
+        this.applyStateGraphics();
+      }
+
+      private applyStateGraphics(): void {
+        const colors: Record<ActorState, ex.Color> = {
+          [ActorState.Idle]:       ex.Color.Gray,
+          [ActorState.Patrolling]: ex.Color.Blue,
+          [ActorState.Attacking]:  ex.Color.Red,
+          [ActorState.Dead]:       ex.Color.Black,
+        };
+        this.graphics.use(
+          new ex.Rectangle({ width: 40, height: 40, color: colors[this.state] })
+        );
+      }
+
+      onInitialize(): void {
+        this.applyStateGraphics();
+      }
+    }
+
+    const game = new ex.Engine({ width: 600, height: 400 });
+    const enemy = new Enemy({ x: 300, y: 200 });
+
+    game.add(enemy);
+    game.start().then(() => {
+      // Simulate state transitions
+      setTimeout(() => enemy.setState(ActorState.Patrolling), 1000);
+      setTimeout(() => enemy.setState(ActorState.Attacking),  2500);
+      setTimeout(() => enemy.setState(ActorState.Dead),       4000);
+    });
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Fix a Fragile Numeric Enum</div>
+  <div class="exercise__body">
+    <p>
+      The code below uses a numeric enum to represent projectile types in a game. It has two problems: members have implicit values
+      that will silently shift if new projectile types are added, and the function accepting a <code>ProjectileType</code> will compile
+      without error when passed an arbitrary number.
+    </p>
+    <pre><code class="language-typescript">
+enum ProjectileType {
+  Arrow,
+  Fireball,
+  IceShard,
+  PoisonBolt,
+}
+
+function fireProjectile(type: ProjectileType): void {
+  console.log("Firing type:", type);
+}
+
+fireProjectile(99); // Should be an error but is not
+</code></pre>
+    <ol>
+      <li>Convert <code>ProjectileType</code> to an <code>as const</code> object with explicit string values for each member.</li>
+      <li>Derive a <code>ProjectileType</code> type from the object's values.</li>
+      <li>
+        Update <code>fireProjectile</code> to use the derived type and confirm that passing an arbitrary string produces a compile
+        error.
+      </li>
+      <li>
+        Use <code>Object.values(ProjectileType)</code> to log all available projectile types to the console. Confirm this works without
+        any runtime errors.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> The compiler rejects any value not in the <code>ProjectileType</code> object, and iteration
+      over all types works correctly at runtime.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Build a Type-Safe Event Registry</div>
+  <p>
+    In Excalibur, actors can emit and listen for custom events. Build a type-safe event registry using an <code>as const</code> object
+    to define all event names. Then write an <code>EventDispatcher</code> class with <code>on</code> and <code>emit</code> methods that
+    are generic over the event name union. The <code>on</code> method should accept only valid event names from your registry object,
+    and the callback's payload type should be narrowed based on which event name is passed. Do not use any <code>enum</code> anywhere
+    in your solution.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span
+        >Numeric enums allow any number to be assigned to them at compile time, making them less type-safe than they appear. An
+        explicit string enum or <code>as const</code> object closes this gap.</span
+      >
+    </li>
+    <li>
+      <span
+        >Inserting a member into the middle of a numeric enum silently renumbers all subsequent members. If enum values ever leave your
+        process, use string values or <code>as const</code> to keep them stable.</span
+      >
+    </li>
+    <li>
+      <span
+        >String enums are nominal: a string literal matching a member's value is not assignable to the enum type without a cast or type
+        guard. Validate external strings at the boundary rather than casting blindly.</span
+      >
+    </li>
+    <li>
+      <span
+        ><code>const enum</code> inlines values at compile time but breaks in isolated transpilation pipelines (esbuild, Babel, Vite)
+        and cannot be iterated at runtime.</span
+      >
+    </li>
+    <li>
+      <span
+        >A plain object with <code>as const</code> plus a derived union type gives you named constants, full type safety, runtime
+        iteration, and compatibility with every TypeScript toolchain.</span
+      >
+    </li>
+    <li>
+      <span
+        >A union of string literals is often the simplest correct choice for small, stable value sets used in function parameters or
+        component props.</span
+      >
+    </li>
+  </ul>
+</section>

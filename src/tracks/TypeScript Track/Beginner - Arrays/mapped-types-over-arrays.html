@@ -1,25 +1,452 @@
-<!-- Stub: UNDER CONSTRUCTION — full content coming soon -->
+<!--
+  mapped-types-arrays.html
+  ========================
+  Track:  TypeScript Fundamentals
+  Module: Types in Depth
+  Lesson: Mapped Types Over Arrays
+
+  Content only — no <html>, <head>, or <body> tags.
+  Injected by lesson-view.js.
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Understand what a mapped type is and how it transforms an existing type</li>
+    <li>Use <code>keyof</code> and the <code>in</code> keyword to iterate over object keys</li>
+    <li>Apply mapped types to derive new types from array element types</li>
+    <li>Recognize when a mapped type is the right tool over a manual type definition</li>
+    <li>Use mapped types in a game context to transform collections of entity data</li>
   </ul>
 </section>
 
-<h2>UNDER CONSTRUCTION</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you have an array of enemy definitions for your game. Each enemy object has a <code>name</code>, <code>health</code>, and
+  <code>speed</code>. Now you need a second type where every property on that same object is optional, so players can partially
+  override enemy stats. Do you copy the type and add <code>?</code> to every field by hand? What happens when you add a new field and
+  forget to update the copy?
+</p>
+
+<p>
+  Mapped types solve this. They let TypeScript <em>derive</em> a new type by walking over the keys of an existing type and applying a
+  transformation to each one. Instead of duplicating structure, you describe the transformation once, and TypeScript keeps everything
+  in sync for you.
+</p>
+
+<p>
+  In this lesson you will learn how mapped types work, how to combine them with array element types to transform collections, and how
+  that pattern shows up naturally when building game systems with ExcaliburJS.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>What Is a Mapped Type?</h2>
+
+<p>
+  A mapped type is a type that iterates over a set of keys and produces a new object type. The basic syntax looks like a
+  <code>for...in</code> loop written inside a type definition.
+</p>
+
+<pre><code class="language-typescript">
+// A simple mapped type that makes every property optional
+type Partial&lt;T&gt; = {
+  [K in keyof T]?: T[K];
+};
+</code></pre>
+
+<p>Breaking that down:</p>
+
+<ul>
+  <li><code>[K in keyof T]</code> iterates over every key of <code>T</code>, binding each key to <code>K</code>.</li>
+  <li><code>?</code> makes the resulting property optional.</li>
+  <li><code>T[K]</code> looks up the type of each property on <code>T</code> (an <em>indexed access type</em>).</li>
+</ul>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      <code>Partial&lt;T&gt;</code>, <code>Required&lt;T&gt;</code>, and <code>Readonly&lt;T&gt;</code> are all built into TypeScript's
+      standard library as mapped types. You get them for free without any import.
+    </p>
   </div>
 </div>
 
+<h3>Mapping Over a Concrete Type</h3>
+
+<p>
+  Here is a concrete game example. Suppose you have an <code>EnemyStats</code> type and you want to create a
+  <code>PartialEnemyStats</code> type where every field is optional for patching purposes.
+</p>
+
+<pre><code class="language-typescript">
+type EnemyStats = {
+  name: string;
+  health: number;
+  speed: number;
+  damage: number;
+};
+
+// Derived automatically — no manual copy needed
+type PartialEnemyStats = {
+  [K in keyof EnemyStats]?: EnemyStats[K];
+};
+
+// This is exactly the same as writing:
+// { name?: string; health?: number; speed?: number; damage?: number; }
+</code></pre>
+
+<p>
+  If you later add <code>armor: number</code> to <code>EnemyStats</code>, <code>PartialEnemyStats</code> gets
+  <code>armor?: number</code>
+  automatically. Nothing breaks, nothing drifts.
+</p>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      In practice you would just write <code>Partial&lt;EnemyStats&gt;</code>
+      directly. Writing the expansion out by hand here is only to show you what the built-in utility type is doing under the hood.
+    </p>
+  </div>
+</div>
+
+<h2>Array Element Types and Mapped Types</h2>
+
+<p>
+  Mapped types operate on <em>object keys</em>, but your data often lives inside arrays. To bridge the gap, TypeScript gives you
+  <code>T[number]</code>: a way to extract the element type of any array type.
+</p>
+
+<pre><code class="language-typescript">
+type EnemyDefinition = {
+  id: string;
+  name: string;
+  health: number;
+  speed: number;
+};
+
+type EnemyList = EnemyDefinition[];
+
+// Extract the element type from the array type
+type SingleEnemy = EnemyList[number];
+// SingleEnemy is now exactly: EnemyDefinition
+</code></pre>
+
+<p>
+  <code>T[number]</code> works because arrays are indexed by numbers. TypeScript uses that index to look up the element type, the same
+  way <code>T[K]</code> looks up a property type by key name.
+</p>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      <code>Array&lt;T&gt;[number]</code> and <code>T[][number]</code> both return <code>T</code>. Use whichever form matches your
+      existing type declaration.
+    </p>
+  </div>
+</div>
+
+<h3>Combining the Two: Map Over an Array's Element Type</h3>
+
+<p>
+  Now for the powerful part. You can chain <code>T[number]</code> with a mapped type to transform every property of an array's element
+  type at once.
+</p>
+
+<pre><code class="language-typescript">
+type EnemyDefinition = {
+  id: string;
+  name: string;
+  health: number;
+  speed: number;
+};
+
+// Step 1: get the element type
+type EnemyElement = EnemyDefinition[][number]; // EnemyDefinition
+
+// Step 2: map over its keys to make every value a string (for a display layer)
+type DisplayEnemy = {
+  [K in keyof EnemyElement]: string;
+};
+// { id: string; name: string; health: string; speed: string; }
+</code></pre>
+
+<p>
+  The pattern is always the same: extract the element type first with
+  <code>[number]</code>, then map over its keys. You can apply any transformation in the mapped type body.
+</p>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      <code>T[number]</code> only makes sense on array types. Using it on a plain object type produces a union of all its
+      <em>value</em> types, which is rarely what you want. Always double-check that <code>T</code> is an array before indexing with
+      <code>number</code>.
+    </p>
+  </div>
+</div>
+
+<h2>A Practical Game Pattern: Typed Configuration Patches</h2>
+
+<p>
+  A common game-dev scenario is having a fixed array of level configurations defined at startup, then allowing runtime overrides for
+  individual fields without replacing the whole object. Mapped types make the override type trivial to derive.
+</p>
+
+<pre><code class="language-typescript">
+// Defined once — the authoritative shape
+const levelConfigs = [
+  { id: "level-1", title: "Forest Run", gravity: 800, enemyCount: 5 },
+  { id: "level-2", title: "Ice Cave",   gravity: 600, enemyCount: 8 },
+] as const;
+
+// Derive the element type from the runtime array
+type LevelConfig = typeof levelConfigs[number];
+// { readonly id: string; readonly title: string; readonly gravity: number; readonly enemyCount: number; }
+
+// Derive a patch type — every property becomes optional
+type LevelPatch = {
+  [K in keyof LevelConfig]?: LevelConfig[K];
+};
+
+// Usage: merge a patch over a config at runtime
+function applyPatch(base: LevelConfig, patch: LevelPatch): LevelConfig {
+  return { ...base, ...patch };
+}
+
+const override = applyPatch(levelConfigs[0], { gravity: 300 });
+// TypeScript ensures 'gravity' is a number — no raw object spreading allowed
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      <code>typeof levelConfigs[number]</code> is the idiomatic way to pull an element type out of a <em>value</em> (an actual
+      variable) rather than from a named type. <code>typeof</code> first converts the value to its type, then
+      <code>[number]</code> extracts the element type.
+    </p>
+  </div>
+</div>
+
+<h3>Adding Modifiers: Readonly and Required</h3>
+
+<p>
+  Mapped types support two modifiers that can be applied or removed with
+  <code>+</code> and <code>-</code>. This lets you lock down or loosen properties as part of the transformation.
+</p>
+
+<pre><code class="language-typescript">
+type EnemyDefinition = {
+  id: string;
+  name?: string;  // optional on the source
+  health: number;
+};
+
+// Remove optionality and make everything readonly
+type FrozenEnemy = {
+  +readonly [K in keyof EnemyDefinition]-?: EnemyDefinition[K];
+};
+// { readonly id: string; readonly name: string; readonly health: number; }
+
+// Note: -? strips the optional marker, making all properties required
+// Note: +readonly (or just readonly) adds the readonly modifier
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      <code>-?</code> is the modifier behind the built-in <code>Required&lt;T&gt;</code>
+      utility type. You can combine modifiers freely in your own mapped types when none of the built-ins fit exactly.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The example below defines an array of actor spawn configurations for a simple game scene. A mapped type derives a
+  <code>SpawnPatch</code> type that makes every property optional, then applies a patch to one of the configs before spawning the
+  actor. Adjust the patch values and watch the actor change.
+</p>
+
+<excalibur-playground label="Try It: Mapped Types Over Arrays" height="520">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    // --- Types derived with mapped types ---
+
+    type SpawnConfig = {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      color: ex.Color;
+    };
+
+    // Mapped type: every property becomes optional for patching
+    type SpawnPatch = {
+      [K in keyof SpawnConfig]?: SpawnConfig[K];
+    };
+
+    // An array of base configs
+    const spawnConfigs: SpawnConfig[] = [
+      { x: 100, y: 100, width: 40, height: 40, color: ex.Color.Red },
+      { x: 250, y: 150, width: 60, height: 30, color: ex.Color.Blue },
+      { x: 400, y: 120, width: 35, height: 55, color: ex.Color.Green },
+    ];
+
+    // Runtime helper — applies an optional patch over a base config
+    function applyPatch(base: SpawnConfig, patch: SpawnPatch): SpawnConfig {
+      return { ...base, ...patch };
+    }
+
+    // Patch the second config at runtime (only override color and width)
+    const patched: SpawnConfig = applyPatch(spawnConfigs[1], {
+      color: ex.Color.Yellow,
+      width: 90,
+    });
+
+    // Replace the config in the list so the spawner uses it
+    spawnConfigs[1] = patched;
+
+    // --- Excalibur scene setup ---
+
+    const game = new ex.Engine({ width: 600, height: 300, backgroundColor: ex.Color.fromHex("#1a1a2e") });
+
+    for (const cfg of spawnConfigs) {
+      const actor = new ex.Actor({
+        x: cfg.x,
+        y: cfg.y,
+        width: cfg.width,
+        height: cfg.height,
+        color: cfg.color,
+      });
+      game.add(actor);
+    }
+
+    game.start();
+  </script>
+</excalibur-playground>
+
+<p>
+  Notice that the second box is wider and yellow because the
+  <code>SpawnPatch</code> only overrode two fields. The other properties (<code>x</code>, <code>y</code>, <code>height</code>) carried
+  through from the base config unchanged. TypeScript enforced that the patch could only contain keys that exist on
+  <code>SpawnConfig</code>.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Derive a Read-Only Snapshot Type</div>
+  <div class="exercise__body">
+    <p>
+      You have an array of projectile definitions. Your goal is to derive a
+      <code>FrozenProjectile</code> type from the array's element type that makes every property <code>readonly</code> and required (no
+      optional fields), using a mapped type.
+    </p>
+    <ol>
+      <li>
+        Define a <code>ProjectileDefinition</code> type with at least four properties: <code>id</code> (string),
+        <code>speed</code> (number), <code>damage</code> (number), and an optional <code>label</code>
+        (string).
+      </li>
+      <li>Create an array <code>projectiles: ProjectileDefinition[]</code> with two or three entries.</li>
+      <li>
+        Use <code>typeof projectiles[number]</code> as the source type in a mapped type that applies both <code>+readonly</code> and
+        <code>-?</code> to produce <code>FrozenProjectile</code>.
+      </li>
+      <li>
+        Write a function <code>freeze(p: ProjectileDefinition): FrozenProjectile</code>
+        that returns the object cast to the frozen type. Try assigning to a property on the returned value and confirm TypeScript
+        rejects it.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript should error if you try to write <code>frozen.speed = 99</code>, and
+      <code>frozen.label</code> should be <code>string</code> (not <code>string | undefined</code>) because <code>-?</code> removed the
+      optional marker.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Build a Typed Event Payload Registry</div>
+  <p>
+    You have a union of event name strings:
+    <code>type GameEvent = "spawn" | "damage" | "death"</code>. Use a mapped type over this union (hint: <code>[K in GameEvent]</code>)
+    to build a <code>PayloadMap</code> type where each key maps to a distinct payload shape — for example <code>spawn</code> maps to
+    <code>{ actorId: string; x: number; y: number }</code>. Then write a generic
+    <code>emit&lt;E extends GameEvent&gt;(event: E, payload: PayloadMap[E]): void</code>
+    function. TypeScript should enforce the correct payload shape for each event name at the call site.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span
+        >A mapped type iterates over a set of keys with <code>[K in keyof T]</code> and produces a new object type with a
+        transformation applied to each property.</span
+      >
+    </li>
+    <li>
+      <span
+        ><code>T[number]</code> extracts the element type from an array type, giving you a single object type you can then map
+        over.</span
+      >
+    </li>
+    <li>
+      <span
+        >Combining <code>typeof myArray[number]</code> with a mapped type lets you derive new types directly from runtime array values
+        without duplicating type definitions.</span
+      >
+    </li>
+    <li>
+      <span
+        >The <code>+readonly</code> and <code>-?</code> modifiers (and their inverses) let you add or remove <code>readonly</code> and
+        optional markers as part of the mapping.</span
+      >
+    </li>
+    <li>
+      <span
+        >Built-in utility types like <code>Partial</code>, <code>Required</code>, and <code>Readonly</code> are ordinary mapped types —
+        understanding the pattern lets you write your own when the built-ins do not fit.</span
+      >
+    </li>
   </ul>
 </section>

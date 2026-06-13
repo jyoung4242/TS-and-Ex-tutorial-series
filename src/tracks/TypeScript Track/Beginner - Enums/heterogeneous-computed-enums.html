@@ -1,0 +1,539 @@
+<!--
+  heterogeneous-computed-enums.html
+  ==================================
+  Track:  TypeScript Fundamentals
+  Module: Enums & Literal Types
+  Lesson: Heterogeneous & Computed Enums
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Explain the difference between numeric, string, heterogeneous, and computed enum members</li>
+    <li>Write enums that mix string and numeric members intentionally and safely</li>
+    <li>Use computed and constant expressions to derive enum values at compile time</li>
+    <li>Recognize when heterogeneous enums are a design smell and choose a safer alternative</li>
+    <li>Apply computed enums to real game-development patterns in ExcaliburJS, such as bitmask collision filters and tile flags</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  You have probably written a basic numeric enum before: a list of named constants where TypeScript automatically assigns
+  <code>0, 1, 2, ...</code> to each member. That works well for simple cases. But real codebases need more: flags that can be combined
+  with bitwise operators, tile costs derived from constants, or event codes that mix readable strings with compact numbers. That is
+  where <strong>heterogeneous</strong> and <strong>computed</strong> enum members come in.
+</p>
+
+<p>
+  A <em>heterogeneous</em> enum is one whose members have a mix of string and numeric values. A <em>computed</em> enum member is one
+  whose value is not a plain literal but a constant expression evaluated at compile time. These two features are distinct but often
+  appear together. By the end of this lesson you will know exactly when each is appropriate, how to write them correctly, and how to
+  spot the subtle bugs they can introduce if you are not careful.
+</p>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Prior knowledge</div>
+    <p>
+      This lesson assumes you already understand basic numeric and string enums. If either of those feels shaky, revisit the "Enum
+      Basics" lesson before continuing.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 1 — QUICK RECAP: THE TWO PURE FORMS
+     ═══════════════════════════════════════════════ -->
+<h2>A Quick Recap: Pure Numeric vs. Pure String Enums</h2>
+
+<p>Before mixing values, it helps to recall what each pure form gives you.</p>
+
+<pre><code class="language-typescript">// Pure numeric enum — members auto-increment from 0
+enum Direction {
+  Up,     // 0
+  Down,   // 1
+  Left,   // 2
+  Right,  // 3
+}
+
+// Pure string enum — every member must be explicitly initialized
+enum AudioEvent {
+  Play   = "PLAY",
+  Pause  = "PAUSE",
+  Stop   = "STOP",
+}
+</code></pre>
+
+<p>
+  Numeric enums have <strong>reverse mappings</strong>: at runtime, <code>Direction[0]</code> returns <code>"Up"</code>. String enums
+  do not. This difference matters a lot once you start mixing the two.
+</p>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      Only numeric enum members get a reverse mapping. String members never do. This asymmetry is the root cause of most heterogeneous
+      enum confusion.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2 — HETEROGENEOUS ENUMS
+     ═══════════════════════════════════════════════ -->
+<h2>Heterogeneous Enums: Mixing Strings and Numbers</h2>
+
+<p>
+  TypeScript allows you to assign both string and numeric values inside the same enum declaration. The TypeScript documentation itself
+  describes this as "not advised" unless you genuinely need to interop with JavaScript that already produces such mixed structures.
+  With that caveat in mind, here is the syntax:
+</p>
+
+<pre><code class="language-typescript">enum BossState {
+  Idle     = 0,
+  Charging = 1,
+  Dead     = "DEAD",   // string member mixed in
+}
+
+console.log(BossState.Idle);      // 0
+console.log(BossState.Dead);      // "DEAD"
+console.log(BossState[0]);        // "Idle"  (reverse mapping works for numeric)
+console.log(BossState["DEAD"]);   // undefined — no reverse mapping for strings
+</code></pre>
+
+<p>
+  The mixed enum compiles just fine. The danger is that the runtime object looks different depending on which member you inspect.
+  Numeric members participate in the reverse mapping; string members do not. Code that iterates over
+  <code>Object.values(BossState)</code> will see both the keys and the reverse-mapped values for numeric members, which produces
+  duplicates and surprises.
+</p>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Iteration surprise</div>
+    <p>
+      <code>Object.values(BossState)</code> returns <code>[0, 1, "DEAD", "Idle", "Charging"]</code> — the numeric values, the string
+      value, and the reverse-mapped names for the numeric members. If you iterate an enum at runtime to populate a UI or log states,
+      use a pure string enum instead.
+    </p>
+  </div>
+</div>
+
+<h3>When heterogeneous enums are justified</h3>
+
+<p>
+  There is one legitimate pattern: a boolean-like pair where you want one sentinel string and one numeric zero so that falsy checks
+  still work:
+</p>
+
+<pre><code class="language-typescript">// Interop pattern — maps to legacy JS library values
+enum LegacyFlag {
+  Off = 0,
+  On  = "ON",
+}
+
+// This works as a falsy check because 0 is falsy and "ON" is truthy
+if (!LegacyFlag.Off) {
+  console.log("flag is off"); // prints
+}
+</code></pre>
+
+<p>
+  Outside of JS interop scenarios like this, prefer two separate pure enums or a discriminated union instead of mixing value types in
+  one declaration.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3 — COMPUTED ENUM MEMBERS
+     ═══════════════════════════════════════════════ -->
+<h2>Computed Enum Members</h2>
+
+<p>
+  A <strong>computed</strong> member's value is a constant expression that TypeScript evaluates at compile time. Computed members can
+  reference other enum members, perform bitwise operations, use arithmetic, and call a small set of built-in functions (<code
+    >Math.floor</code
+  >
+  is not available here; stick to bitwise and arithmetic operators).
+</p>
+
+<pre><code class="language-typescript">enum Tile {
+  Empty   = 0,
+  Wall    = 1 &lt;&lt; 0,   // 1 — bit 0
+  Water   = 1 &lt;&lt; 1,   // 2 — bit 1
+  Lava    = 1 &lt;&lt; 2,   // 4 — bit 2
+  Hazard  = Water | Lava, // 6 — computed from two members
+}
+
+// Check whether a tile contains lava
+function isHazardous(tile: Tile): boolean {
+  return (tile &amp; Tile.Lava) !== 0;
+}
+
+console.log(isHazardous(Tile.Lava));    // true
+console.log(isHazardous(Tile.Hazard));  // true
+console.log(isHazardous(Tile.Wall));    // false
+</code></pre>
+
+<p>
+  This pattern is called a <strong>bitmask enum</strong> (or flags enum). Each member represents a single bit, and you combine them
+  with the bitwise OR (<code>|</code>) operator. Testing a combination uses bitwise AND (<code>&amp;</code>).
+</p>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Constant vs. computed</div>
+    <p>
+      TypeScript distinguishes <em>constant</em> members (literal values or expressions the compiler can fold at compile time) from
+      <em>computed</em> members (expressions that remain as runtime code). Bitwise and arithmetic expressions over other enum members
+      are constant. Calling functions like <code>someArray.length</code> produces a computed member that TypeScript cannot fold, which
+      prevents subsequent members from auto-incrementing. Put computed members last to avoid this limitation.
+    </p>
+  </div>
+</div>
+
+<h3>The ordering constraint</h3>
+
+<p>
+  Once TypeScript hits a <em>truly</em> computed member (one it cannot resolve at compile time), it cannot auto-increment subsequent
+  members. This means any member after a non-constant computed member must be explicitly initialized.
+</p>
+
+<pre><code class="language-typescript">function getVersion(): number { return 3; }
+
+enum Config {
+  MaxActors   = 100,        // constant
+  Version     = getVersion(), // computed (runtime call — cannot fold)
+  // DoubleMax = MaxActors * 2, // ERROR: must have initializer after computed member
+  DoubleCap   = 200,        // fine — explicitly initialized
+}
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip: put runtime-computed members last</div>
+    <p>
+      If you must include a member whose value comes from a function call, place it at the very end of the enum. All constant members
+      can then auto-increment freely without being blocked.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 4 — COMBINING BOTH IN EXCALIBUR
+     ═══════════════════════════════════════════════ -->
+<h2>Putting It Together: Collision Filters in ExcaliburJS</h2>
+
+<p>
+  ExcaliburJS uses a numeric category and mask system to decide which actors collide with each other. Each actor is assigned a
+  <code>category</code> (what it is) and a <code>mask</code> (what it can collide with). Bitmask enums map perfectly onto this API and
+  eliminate the raw-number bugs that plague collision filter code.
+</p>
+
+<pre><code class="language-typescript">import * as ex from "excalibur";
+
+// Bitmask enum — each member is a distinct bit
+enum CollisionCategory {
+  None    = 0,
+  Player  = 1 &lt;&lt; 0,   // 1
+  Enemy   = 1 &lt;&lt; 1,   // 2
+  Bullet  = 1 &lt;&lt; 2,   // 4
+  Terrain = 1 &lt;&lt; 3,   // 8
+  Pickup  = 1 &lt;&lt; 4,   // 16
+}
+
+// Derived masks using computed members
+enum CollisionMask {
+  // Player collides with enemies, terrain, and pickups — not other players or bullets
+  Player  = CollisionCategory.Enemy | CollisionCategory.Terrain | CollisionCategory.Pickup,
+  // Bullet collides only with enemies and terrain
+  Bullet  = CollisionCategory.Enemy | CollisionCategory.Terrain,
+  // Enemy collides with player and terrain
+  Enemy   = CollisionCategory.Player | CollisionCategory.Terrain,
+}
+
+// Apply to actors
+const player = new ex.Actor({ name: "player" });
+player.body.collisionType = ex.CollisionType.Active;
+player.body.group = ex.CollisionGroupManager.groupForBits(
+  CollisionCategory.Player,
+  CollisionMask.Player
+);
+
+const bullet = new ex.Actor({ name: "bullet" });
+bullet.body.collisionType = ex.CollisionType.Active;
+bullet.body.group = ex.CollisionGroupManager.groupForBits(
+  CollisionCategory.Bullet,
+  CollisionMask.Bullet
+);
+</code></pre>
+
+<p>Because each category is a single bit, you can always test membership with a bitwise AND check:</p>
+
+<pre><code class="language-typescript">function canCollideWith(actorCategory: CollisionCategory, mask: CollisionMask): boolean {
+  return (mask &amp; actorCategory) !== 0;
+}
+
+// Can a bullet hit an enemy?
+console.log(canCollideWith(CollisionCategory.Enemy, CollisionMask.Bullet));   // true
+// Can a bullet hit a player?
+console.log(canCollideWith(CollisionCategory.Player, CollisionMask.Bullet));  // false
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Separate category from mask enums</div>
+    <p>
+      Keeping <code>CollisionCategory</code> and <code>CollisionMask</code> as two separate enums makes it impossible to accidentally
+      pass a mask where a category is expected. TypeScript's structural typing does not protect you here because both are
+      <code>number</code> at runtime, but the distinct names at the call site make mistakes obvious during code review.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 5 — HETEROGENEOUS ENUMS IN GAME CONTEXT
+     ═══════════════════════════════════════════════ -->
+<h2>Heterogeneous Enums in a Game Context</h2>
+
+<p>
+  Here is a scenario where a heterogeneous enum is tempting but ultimately a design smell. Imagine you want a single enum to represent
+  both numeric priority levels and named special states:
+</p>
+
+<pre><code class="language-typescript">// Tempting but problematic
+enum AIState {
+  Idle      = 0,
+  Patrol    = 1,
+  Chase     = 2,
+  Dead      = "DEAD",   // special terminal state
+}
+
+// The problem: iterating to display a debug overlay
+Object.values(AIState).forEach(v =&gt; {
+  console.log(v); // 0, 1, 2, "DEAD", "Idle", "Patrol", "Chase"
+  //                 ^ duplicates from reverse mapping of numeric members
+});
+</code></pre>
+
+<p>
+  The better approach is a discriminated union or two separate constructs: a numeric enum for the active states and a separate string
+  literal type for terminal states:
+</p>
+
+<pre><code class="language-typescript">enum ActiveAIState {
+  Idle   = 0,
+  Patrol = 1,
+  Chase  = 2,
+}
+
+type TerminalAIState = "DEAD" | "ESCAPED";
+
+type AIState = ActiveAIState | TerminalAIState;
+
+function describeState(state: AIState): string {
+  if (state === "DEAD")    return "Enemy is dead";
+  if (state === "ESCAPED") return "Enemy has escaped";
+  if (state === ActiveAIState.Chase)  return "Enemy is chasing the player";
+  if (state === ActiveAIState.Patrol) return "Enemy is on patrol";
+  return "Enemy is idle";
+}
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      When you feel the pull toward a heterogeneous enum, ask whether a union type or two separate enums would model the domain more
+      clearly. The answer is almost always yes. Reserve heterogeneous enums for JavaScript interop with existing mixed-value
+      structures.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Bitmask Collision Categories</h2>
+
+<p>
+  The playground below sets up a minimal Excalibur scene with two actors. Each has a collision category and mask defined using the
+  bitmask enum pattern from this lesson. Edit the category and mask values to see which collision pairs fire the
+  <code>collisionstart</code> event.
+</p>
+
+<excalibur-playground label="Try It: Bitmask Collision Enums" height="520">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    // --- Bitmask enums ---
+    enum Category {
+      Player  = 1 << 0,
+      Enemy   = 1 << 1,
+      Terrain = 1 << 2,
+    }
+
+    enum Mask {
+      Player = Category.Enemy | Category.Terrain,
+      Enemy  = Category.Player | Category.Terrain,
+    }
+
+    const game = new ex.Engine({
+      width: 600,
+      height: 400,
+      backgroundColor: ex.Color.fromHex("#1a1a2e"),
+    });
+
+    function makeActor(
+      x: number,
+      y: number,
+      color: ex.Color,
+      category: Category,
+      mask: Mask,
+      label: string
+    ): ex.Actor {
+      const actor = new ex.Actor({
+        x, y,
+        width: 60, height: 60,
+        color,
+        collisionType: ex.CollisionType.Active,
+      });
+
+      actor.body.group = ex.CollisionGroupManager.groupForBits(category, mask);
+
+      actor.on("collisionstart", () => {
+        console.log(`${label} collision detected!`);
+        actor.color = ex.Color.Yellow;
+      });
+
+      actor.on("collisionend", () => {
+        actor.color = color;
+      });
+
+      return actor;
+    }
+
+    const player = makeActor(150, 200, ex.Color.Green,  Category.Player, Mask.Player, "Player");
+    const enemy  = makeActor(450, 200, ex.Color.Red,    Category.Enemy,  Mask.Enemy,  "Enemy");
+
+    // Move player toward enemy
+    player.vel = new ex.Vector(80, 0);
+    enemy.vel  = new ex.Vector(-80, 0);
+
+    game.add(player);
+    game.add(enemy);
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Tile Flag System</div>
+  <div class="exercise__body">
+    <p>
+      You are building a top-down dungeon game. Tiles can have multiple properties active at the same time: a tile can be both walkable
+      and flammable, for example. Use a bitmask enum to model tile flags.
+    </p>
+    <ol>
+      <li>
+        Create a <code>TileFlag</code> enum with at least five members: <code>None</code>, <code>Walkable</code>,
+        <code>Flammable</code>, <code>Wet</code>, and <code>Blocking</code>. Assign each a distinct bit using left-shift notation.
+      </li>
+      <li>
+        Add a computed member called <code>Hazardous</code> whose value combines <code>Flammable</code> and <code>Blocking</code> using
+        the bitwise OR operator.
+      </li>
+      <li>
+        Write a function <code>hasFlag(tile: TileFlag, flag: TileFlag): boolean</code> that returns <code>true</code> when the given
+        flag bit is set on the tile.
+      </li>
+      <li>
+        Test it: create a tile that is both <code>Flammable</code> and <code>Wet</code> by combining the two members with
+        <code>|</code>, then call <code>hasFlag</code>
+        to verify each property independently.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> <code>hasFlag(myTile, TileFlag.Flammable)</code> returns <code>true</code> and
+      <code>hasFlag(myTile, TileFlag.Blocking)</code> returns <code>false</code> when the tile is not blocking.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Typed Flag Operations</div>
+  <p>
+    Extend your tile flag system with three utility functions:
+    <code>addFlag</code>, <code>removeFlag</code>, and <code>toggleFlag</code>. Each should accept a <code>TileFlag</code> value and a
+    flag to modify, and return a new <code>TileFlag</code> value. Use only bitwise operators. Then prove that
+    <code>toggleFlag(toggleFlag(tile, TileFlag.Wet), TileFlag.Wet)</code> always returns the original tile value, regardless of what
+    flags were initially set. Write the proof as a set of TypeScript assertions using <code>console.assert</code>.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span
+        >A heterogeneous enum mixes string and numeric member values in one declaration. Only numeric members get reverse mappings,
+        which makes runtime iteration produce duplicate entries and surprising results.</span
+      >
+    </li>
+    <li>
+      <span
+        >Heterogeneous enums are justified only for JavaScript interop with existing mixed-value structures. In new TypeScript code,
+        prefer a union type or two separate pure enums.</span
+      >
+    </li>
+    <li>
+      <span
+        >A computed enum member's value is a constant expression evaluated at compile time. Bitwise and arithmetic operations over
+        other enum members are always constant.</span
+      >
+    </li>
+    <li>
+      <span
+        >Bitmask enums use left-shift notation (<code>1 &lt;&lt; n</code>) to assign each member a unique bit, enabling multiple flags
+        to be combined with <code>|</code> and tested with <code>&amp;</code>.</span
+      >
+    </li>
+    <li>
+      <span
+        >After a truly computed (runtime-evaluated) member, all subsequent members must have explicit initializers. Placing
+        runtime-computed members last avoids this restriction.</span
+      >
+    </li>
+    <li>
+      <span
+        >In ExcaliburJS, bitmask enums map directly onto the collision category and mask system, turning raw numeric magic values into
+        self-documenting named constants.</span
+      >
+    </li>
+  </ul>
+</section>

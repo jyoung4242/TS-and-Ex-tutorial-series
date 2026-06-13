@@ -1,25 +1,422 @@
-<!-- Stub: UNDER CONSTRUCTION — full content coming soon -->
+<!--
+  tuples.html
+  =====================
+  Track:  typescript-fundamentals (or functions — register as appropriate)
+  Module: data-structures (suggested)
+  Lesson: tuples
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Understand what a tuple is and how it differs from a plain array in TypeScript</li>
+    <li>Declare and destructure tuple types with accurate positional annotations</li>
+    <li>Use optional tuple elements and rest elements to model variable-length structured data</li>
+    <li>Apply named tuple labels to improve code readability</li>
+    <li>Recognize where tuples appear naturally in ExcaliburJS and game-development patterns</li>
   </ul>
 </section>
 
-<h2>UNDER CONSTRUCTION</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you want to store a 2D position: an x value and a y value. You could use an object
+  <code>{ x: number, y: number }</code>, or you could reach for a plain array <code>[100, 200]</code>. The array is shorter to write,
+  but TypeScript has no way to tell whether index 0 is x, y, or something else entirely. Swap the values accidentally and the compiler
+  stays silent.
+</p>
+
+<p>
+  Tuples fix that. A tuple is an array with a <em>fixed length</em> and a <em>known type at every position</em>. TypeScript enforces
+  both, which means a swapped coordinate or a missing value becomes a compile-time error instead of a runtime bug that only appears
+  when your character walks off the map.
+</p>
+
+<p>
+  Tuples show up constantly in game development: coordinates, color channels, key-value pairs returned from functions, and destructured
+  state values all map naturally to this structure. By the end of this lesson you will know exactly when to reach for a tuple and how
+  to keep it readable.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>Declaring a Tuple Type</h2>
+
+<p>
+  A tuple type looks like an array type literal where each position has its own type annotation. Compare the two declarations below:
+</p>
+
+<pre><code class="language-typescript">
+// Plain array — TypeScript only knows it contains numbers
+const position: number[] = [100, 200];
+
+// Tuple — TypeScript knows index 0 is x and index 1 is y
+const position: [number, number] = [100, 200];
+</code></pre>
+
+<p>Both hold two numbers, but the tuple version lets TypeScript catch mistakes the plain array cannot:</p>
+
+<pre><code class="language-typescript">
+const position: [number, number] = [100, 200];
+
+// Error: Type 'string' is not assignable to type 'number'.
+const bad: [number, number] = [100, "up"];
+
+// Error: Source has 3 element(s) but target allows only 2.
+const tooLong: [number, number] = [100, 200, 300];
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      Tuple types are purely a TypeScript construct. At runtime they compile down to ordinary JavaScript arrays. The type information
+      is erased entirely.
+    </p>
   </div>
 </div>
 
+<h2>Mixed-Type Tuples</h2>
+
+<p>
+  Each position in a tuple can have a different type. This is where tuples really shine over plain arrays, which can only express a
+  single element type (or a messy union).
+</p>
+
+<pre><code class="language-typescript">
+// [entityId, label, isActive]
+const enemy: [number, string, boolean] = [42, "Goblin", true];
+
+const id     = enemy[0]; // number
+const label  = enemy[1]; // string
+const active = enemy[2]; // boolean
+</code></pre>
+
+<p>
+  TypeScript infers the correct type for each index, so you get full autocomplete and type safety on every field without writing a
+  dedicated interface.
+</p>
+
+<h2>Destructuring Tuples</h2>
+
+<p>
+  Destructuring is the most readable way to unpack a tuple. Give each position a meaningful name and the positional nature of the type
+  becomes much easier to follow:
+</p>
+
+<pre><code class="language-typescript">
+const spawn: [number, number] = [320, 480];
+const [spawnX, spawnY] = spawn;
+
+console.log(`Spawning at x=${spawnX}, y=${spawnY}`);
+// Spawning at x=320, y=480
+</code></pre>
+
+<p>You can skip positions you do not need by leaving the slot empty:</p>
+
+<pre><code class="language-typescript">
+const record: [number, string, boolean] = [7, "Shield", false];
+const [id, , isEquipped] = record; // skip the label
+
+console.log(id, isEquipped); // 7  false
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Destructuring at the call site is often all you need. Assign clear variable names and the tuple reads almost as well as an object
+      literal, with less ceremony.
+    </p>
+  </div>
+</div>
+
+<h2>Named Tuple Labels</h2>
+
+<p>
+  TypeScript 4.0 introduced named tuple elements. Labels appear before each type annotation and are visible in editor tooltips, which
+  makes function signatures much easier to read:
+</p>
+
+<pre><code class="language-typescript">
+type Vector2 = [x: number, y: number];
+type EntityRecord = [id: number, label: string, active: boolean];
+
+const velocity: Vector2 = [5, -3];
+const [vx, vy] = velocity;
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      Labels are cosmetic. They do not create named properties. You still access elements by index or destructuring, not by
+      <code>velocity.x</code>.
+    </p>
+  </div>
+</div>
+
+<h2>Optional and Rest Elements</h2>
+
+<p>
+  Tuples can include optional trailing elements (marked with <code>?</code>) and a rest element to allow a variable number of values
+  after the fixed positions:
+</p>
+
+<pre><code class="language-typescript">
+// The third element (z) is optional
+type Vector3 = [x: number, y: number, z?: number];
+
+const flat: Vector3  = [10, 20];      // fine
+const solid: Vector3 = [10, 20, 30];  // also fine
+
+// Rest element: one or more damage values follow the label
+type HitRecord = [label: string, ...damage: number[]];
+
+const hit: HitRecord = ["Critical", 50, 10, 5]; // three damage values
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Rest elements must come last. Optional elements must also come after all required elements. Putting them in the middle is a
+      TypeScript error.
+    </p>
+  </div>
+</div>
+
+<h2>Tuples as Function Return Values</h2>
+
+<p>
+  One of the most practical uses for tuples is returning multiple values from a function without creating a one-off interface. React's
+  <code>useState</code> hook is the most famous example of this pattern:
+</p>
+
+<pre><code class="language-typescript">
+// Returns [currentValue, setter] — a two-element tuple
+function useHealth(initial: number): [number, (n: number) => void] {
+  let health = initial;
+
+  function setHealth(n: number): void {
+    health = Math.max(0, n);
+  }
+
+  return [health, setHealth];
+}
+
+const [hp, setHp] = useHealth(100);
+setHp(75);
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      When a function returns a tuple, annotate the return type explicitly. TypeScript may otherwise infer a wider
+      <code>(number | ((n: number) =&gt; void))[]</code> union array type, which loses all positional information.
+    </p>
+  </div>
+</div>
+
+<h2>Tuples vs. Objects: When to Choose Which</h2>
+
+<p>Use a tuple when:</p>
+
+<pre><code class="language-typescript">
+// Order is meaningful and stable (coordinates, RGB, range bounds)
+type Color = [r: number, g: number, b: number];
+type Range = [min: number, max: number];
+
+// You are returning two tightly coupled values from a function
+function clamp(value: number, range: Range): [number, boolean] {
+  const clamped = Math.min(Math.max(value, range[0]), range[1]);
+  return [clamped, clamped !== value];
+}
+</code></pre>
+
+<p>Use an object (or interface) when:</p>
+
+<pre><code class="language-typescript">
+// Fields have independent names that matter at the call site
+interface ActorConfig {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+}
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      A good rule of thumb: if you find yourself writing more than three or four elements, or if the meaning of a position is not
+      immediately obvious from context, reach for an object instead.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  In ExcaliburJS, positions, sizes, and color channels are natural candidates for tuple types. The example below defines a
+  <code>Vector2</code> tuple type for spawn coordinates, a <code>Color</code> tuple for RGB values, and a helper that converts both
+  into an Excalibur actor. Modify the spawn point or color values and watch the actor update.
+</p>
+
+<excalibur-playground label="Try It: Tuples in Game Objects" height="500">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    // Tuple types
+    type Vector2 = [x: number, y: number];
+    type Color   = [r: number, g: number, b: number];
+
+    // Helper: build an actor from tuple arguments
+    function makeActor(position: Vector2, size: Vector2, color: Color): ex.Actor {
+      const [x, y]       = position;
+      const [w, h]       = size;
+      const [r, g, b]    = color;
+
+      return new ex.Actor({
+        x,
+        y,
+        width:  w,
+        height: h,
+        color:  new ex.Color(r, g, b),
+      });
+    }
+
+    const game = new ex.Engine({
+      width:           400,
+      height:          300,
+      backgroundColor: ex.Color.fromHex("#1a1a2e"),
+      displayMode:     ex.DisplayMode.FitScreen,
+    });
+
+    // Try changing these tuples!
+    const spawn: Vector2 = [200, 150];
+    const size:  Vector2 = [40,  40];
+    const tint:  Color   = [80, 200, 120];
+
+    const player = makeActor(spawn, size, tint);
+    game.add(player);
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Model a Game Event with a Tuple</div>
+  <div class="exercise__body">
+    <p>
+      You are building a simple event log for a game. Each event needs to store three pieces of data: a timestamp (number), an event
+      name (string), and whether the event was triggered by the player (boolean).
+    </p>
+    <ol>
+      <li>
+        Declare a named tuple type called <code>GameEvent</code> with the labels <code>timestamp</code>, <code>name</code>, and
+        <code>playerTriggered</code>.
+      </li>
+      <li>
+        Create an array of at least three <code>GameEvent</code> values representing different in-game moments (for example: an enemy
+        spawn, a player jump, and a level completion).
+      </li>
+      <li>
+        Write a function <code>describeEvent</code> that accepts a single <code>GameEvent</code>, destructures it, and returns a
+        formatted string such as <code>"[t=1200] EnemySpawn (system)"</code>.
+      </li>
+      <li>Log each event description to the console using <code>events.map(describeEvent)</code>.</li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> Three formatted strings in the console, each reflecting the correct timestamp, name, and
+      triggered-by label derived from destructuring the tuple.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Generic Tuple Zipper</div>
+  <p>
+    Write a generic function <code>zip</code> that takes two arrays and returns an array of two-element tuples pairing each element by
+    index. The function signature should be:
+  </p>
+  <pre><code class="language-typescript">
+function zip&lt;A, B&gt;(as: A[], bs: B[]): [A, B][]
+  </code></pre>
+  <p>
+    Stop at the shorter array's length. Then use your <code>zip</code> to pair an array of entity IDs (<code>number[]</code>) with an
+    array of entity labels (<code>string[]</code>) and log each pair. As an extra step, add a third overload or variant that zips three
+    arrays into <code>[A, B, C][]</code> tuples.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span
+        >A tuple is a fixed-length array where each position has its own explicit type, giving you positional safety that plain arrays
+        cannot provide.</span
+      >
+    </li>
+    <li>
+      <span
+        >Declare tuple types with bracket notation: <code>[number, string, boolean]</code>. TypeScript enforces both the order and the
+        length.</span
+      >
+    </li>
+    <li>
+      <span
+        >Named tuple labels like <code>[x: number, y: number]</code> improve editor tooltips and make positional intent clear without
+        adding runtime overhead.</span
+      >
+    </li>
+    <li>
+      <span
+        >Optional elements (<code>?</code>) and rest elements (<code>...T[]</code>) let you model variable-length structured data while
+        preserving the fixed prefix.</span
+      >
+    </li>
+    <li>
+      <span
+        >Returning tuples from functions is a clean way to deliver multiple values without creating a dedicated interface, but always
+        annotate the return type explicitly.</span
+      >
+    </li>
+    <li>
+      <span
+        >When a tuple grows beyond three or four elements, or when positions are not self-evident from context, an object type is
+        usually the better choice.</span
+      >
+    </li>
   </ul>
 </section>

@@ -1,0 +1,433 @@
+<!--
+  const-enums.html
+  =====================
+  Track:  typescript-fundamentals (or your chosen track)
+  Module: types  (or enums module)
+  Lesson: const-enums
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Explain what a <code>const enum</code> is and how it differs from a regular <code>enum</code></li>
+    <li>Declare a <code>const enum</code> and use its members safely throughout your code</li>
+    <li>Understand how TypeScript inlines <code>const enum</code> values at compile time</li>
+    <li>Identify scenarios where <code>const enum</code> is the right tool and when to avoid it</li>
+    <li>Apply <code>const enum</code> to name game states, directions, and other fixed sets of values</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you are writing a game and you need to track which direction a player is moving. You could use raw numbers like
+  <code>0</code>, <code>1</code>, <code>2</code>, and <code>3</code>, but that makes your code impossible to read at a glance. You
+  could use plain string constants, but nothing stops someone from passing in a typo like <code>"Lefft"</code>. TypeScript enums solve
+  this by giving named labels to a fixed set of values.
+</p>
+
+<p>
+  <code>const enum</code> takes that one step further. While a regular enum generates real JavaScript objects at runtime, a
+  <code>const enum</code> is completely erased during compilation. TypeScript replaces every reference to a
+  <code>const enum</code> member with its raw numeric value inline. The result is code that is just as readable while you write it,
+  with zero runtime overhead once it ships.
+</p>
+
+<p>
+  In this lesson you will learn how to declare and use <code>const enum</code>, understand exactly what happens to your code when
+  TypeScript compiles it, and see how this pattern maps cleanly to game development with ExcaliburJS.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>Regular Enums vs. Const Enums</h2>
+
+<p>
+  Before diving into <code>const enum</code>, it helps to see what a regular <code>enum</code>
+  compiles to. Given this TypeScript:
+</p>
+
+<pre><code class="language-typescript">
+enum Direction {
+  Up,
+  Down,
+  Left,
+  Right,
+}
+</code></pre>
+
+<p>TypeScript emits this JavaScript at runtime:</p>
+
+<pre><code class="language-typescript">
+// Compiled output from a regular enum
+var Direction;
+(function (Direction) {
+  Direction[Direction["Up"]    = 0] = "Up";
+  Direction[Direction["Down"]  = 1] = "Down";
+  Direction[Direction["Left"]  = 2] = "Left";
+  Direction[Direction["Right"] = 3] = "Right";
+})(Direction || (Direction = {}));
+</code></pre>
+
+<p>
+  That is a real JavaScript object that exists at runtime. It supports reverse mapping (<code>Direction[0] === "Up"</code>), which is
+  occasionally useful, but it adds weight to every bundle that includes it.
+</p>
+
+<p>Now compare that to a <code>const enum</code>:</p>
+
+<pre><code class="language-typescript">
+const enum Direction {
+  Up,
+  Down,
+  Left,
+  Right,
+}
+
+const playerDirection = Direction.Right;
+</code></pre>
+
+<p>TypeScript compiles the usage to:</p>
+
+<pre><code class="language-typescript">
+// Compiled output — no object, just the inlined value
+const playerDirection = 3; /* Direction.Right */
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      TypeScript often adds a trailing comment like <code>/* Direction.Right */</code>
+      to the compiled output so the inlined value stays readable during debugging.
+    </p>
+  </div>
+</div>
+
+<h2>Declaring a Const Enum</h2>
+
+<p>
+  The syntax is identical to a regular enum with the single addition of the
+  <code>const</code> keyword before <code>enum</code>:
+</p>
+
+<pre><code class="language-typescript">
+const enum GameState {
+  MainMenu,     // 0
+  Playing,      // 1
+  Paused,       // 2
+  GameOver,     // 3
+}
+</code></pre>
+
+<p>By default, members are auto-numbered starting at <code>0</code>. You can assign explicit values if the exact numbers matter:</p>
+
+<pre><code class="language-typescript">
+const enum TileType {
+  Empty   = 0,
+  Wall    = 1,
+  Floor   = 2,
+  Spawn   = 3,
+  Exit    = 4,
+}
+</code></pre>
+
+<p>You can also use string values, though this is less common and removes the auto-increment behavior:</p>
+
+<pre><code class="language-typescript">
+const enum AnimationKey {
+  Idle   = "idle",
+  Run    = "run",
+  Jump   = "jump",
+  Attack = "attack",
+}
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Use string <code>const enum</code> values when the compiled output needs to match a specific string, such as animation keys that
+      are passed to an asset loader by name. Use numeric values when the actual number is irrelevant and you only care about
+      distinguishing states.
+    </p>
+  </div>
+</div>
+
+<h2>Using Const Enum Members</h2>
+
+<p>You reference members with dot notation, exactly like a regular enum. TypeScript enforces that only valid members are used:</p>
+
+<pre><code class="language-typescript">
+const enum Direction {
+  Up,
+  Down,
+  Left,
+  Right,
+}
+
+function move(dir: Direction): void {
+  if (dir === Direction.Up) {
+    console.log("Moving up!");
+  }
+}
+
+move(Direction.Left);   // OK
+move(5);                // Error: Argument of type '5' is not assignable
+                        //        to parameter of type 'Direction'
+</code></pre>
+
+<p>
+  The type system treats <code>Direction</code> as a distinct type, so raw numbers that happen to be out of range are rejected. This is
+  the main safety benefit over plain numeric constants.
+</p>
+
+<h2>Const Enum in a Switch Statement</h2>
+
+<p>
+  Switch statements are where <code>const enum</code> really shines. TypeScript can warn you if you forget to handle a case, and the
+  compiled output contains only simple number comparisons with no object lookup overhead:
+</p>
+
+<pre><code class="language-typescript">
+const enum GameState {
+  MainMenu,
+  Playing,
+  Paused,
+  GameOver,
+}
+
+function handleState(state: GameState): string {
+  switch (state) {
+    case GameState.MainMenu: return "Show title screen";
+    case GameState.Playing:  return "Run game loop";
+    case GameState.Paused:   return "Show pause menu";
+    case GameState.GameOver: return "Show score screen";
+  }
+}
+</code></pre>
+
+<h2>What You Cannot Do With Const Enums</h2>
+
+<p>
+  Because <code>const enum</code> members are inlined and the object is erased, several runtime operations that work on regular enums
+  will fail:
+</p>
+
+<pre><code class="language-typescript">
+const enum Direction { Up, Down, Left, Right }
+
+// These all cause errors or produce undefined at runtime:
+
+// 1. Reverse mapping does not exist
+const name = Direction[0];  // TypeScript error
+
+// 2. Iterating members is impossible
+Object.keys(Direction);     // Error: 'const enum' members can only be
+                            //         used in property access expressions
+
+// 3. Passing the enum itself to a function
+function logEnum(e: object) { console.log(e); }
+logEnum(Direction);         // Error: 'Direction' only refers to a type
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      If you need to iterate over all values at runtime, display human-readable labels, or pass the enum object to a function, use a
+      regular <code>enum</code> or a plain object constant instead. <code>const enum</code> is for read-only comparisons only.
+    </p>
+  </div>
+</div>
+
+<h2>Const Enum Across Files and Modules</h2>
+
+<p>
+  <code>const enum</code> works reliably when everything is compiled together in one TypeScript project. However, there is one
+  important caveat when consuming a <code>const enum</code> that is defined in a separate <code>.d.ts</code> declaration file (such as
+  from a published npm package): TypeScript cannot inline values it cannot see at compile time.
+</p>
+
+<pre><code class="language-typescript">
+// If you import a const enum from a .d.ts-only package, you may see:
+// error TS2748: Cannot access ambient const enums when
+// 'isolatedModules' is enabled.
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      When using build tools like Vite, esbuild, or Babel that process files one at a time, <code>const enum</code> defined in external
+      packages can break. Stick to <code>const enum</code> within your own project source, or enable <code>preserveConstEnums</code> in
+      your <code>tsconfig.json</code> if you need interop with external consumers.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Const Enum in a Game Loop</h2>
+
+<p>
+  The playground below uses a <code>const enum</code> to control player movement direction. Notice that the switch statement reads like
+  plain English while the compiled output sends only inlined numbers to the engine. Try changing the starting direction or adding new
+  cases to the switch.
+</p>
+
+<excalibur-playground label="Try It: Const Enum Direction Control" height="500">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    // Const enum — fully erased at compile time
+    const enum Direction {
+      Up,
+      Down,
+      Left,
+      Right,
+    }
+
+    const game = new ex.Engine({
+      width: 400,
+      height: 400,
+      backgroundColor: ex.Color.fromHex("#1a1a2e"),
+    });
+
+    const player = new ex.Actor({
+      x: 200,
+      y: 200,
+      width: 32,
+      height: 32,
+      color: ex.Color.fromHex("#e94560"),
+    });
+
+    // Use the const enum to decide initial velocity
+    function applyDirection(actor: ex.Actor, dir: Direction): void {
+      switch (dir) {
+        case Direction.Up:
+          actor.vel = new ex.Vector(0, -80);
+          break;
+        case Direction.Down:
+          actor.vel = new ex.Vector(0, 80);
+          break;
+        case Direction.Left:
+          actor.vel = new ex.Vector(-80, 0);
+          break;
+        case Direction.Right:
+          actor.vel = new ex.Vector(80, 0);
+          break;
+      }
+    }
+
+    player.on("postupdate", () => {
+      // Wrap around screen edges
+      if (player.pos.x > 400) player.pos.x = 0;
+      if (player.pos.x < 0)   player.pos.x = 400;
+      if (player.pos.y > 400) player.pos.y = 0;
+      if (player.pos.y < 0)   player.pos.y = 400;
+    });
+
+    game.add(player);
+
+    game.start().then(() => {
+      applyDirection(player, Direction.Right);
+    });
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Model Game States With a Const Enum</div>
+  <div class="exercise__body">
+    <p>
+      You are building a simple game state machine. Use a <code>const enum</code> to represent the possible states and a function to
+      handle transitions between them.
+    </p>
+    <ol>
+      <li>
+        Declare a <code>const enum</code> named <code>GameState</code> with four members: <code>MainMenu</code>, <code>Playing</code>,
+        <code>Paused</code>, and <code>GameOver</code>.
+      </li>
+      <li>
+        Write a function <code>getNextState(current: GameState, action: string): GameState</code> that returns the correct next state.
+        For example, <code>"start"</code> from <code>MainMenu</code> should return <code>Playing</code>, and <code>"pause"</code> from
+        <code>Playing</code> should return <code>Paused</code>.
+      </li>
+      <li>Call your function several times and <code>console.log</code> the results to verify the transitions behave as expected.</li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript compiles without errors, and your console output shows the correct state values for
+      each transition.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Tile Map With Const Enum Tile Types</div>
+  <p>
+    Declare a <code>const enum TileType</code> with at least five values representing different terrain types (for example,
+    <code>Empty</code>, <code>Wall</code>, <code>Floor</code>, <code>Water</code>, <code>Lava</code>). Define a 2D array that
+    represents a small tile map using only those enum members. Write a function <code>isPassable(tile: TileType): boolean</code> that
+    returns whether a player can walk on that tile type. Feed your map through a loop and print which coordinates are passable. No
+    reverse mapping allowed: rely entirely on forward member references.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span
+        >A <code>const enum</code> is declared with the <code>const</code> keyword and produces zero runtime JavaScript because all
+        members are inlined as literal values.</span
+      >
+    </li>
+    <li>
+      <span
+        >Members default to auto-incremented numbers starting at <code>0</code>, but you can assign explicit numeric or string
+        values.</span
+      >
+    </li>
+    <li>
+      <span>TypeScript enforces that only valid enum members are used, giving you safety over bare number or string constants.</span>
+    </li>
+    <li>
+      <span>Because the object is erased, reverse mapping and runtime iteration are not available with <code>const enum</code>.</span>
+    </li>
+    <li>
+      <span
+        >Avoid <code>const enum</code> across package boundaries or in projects that use single-file transpilers like esbuild unless
+        you understand the tradeoffs.</span
+      >
+    </li>
+    <li>
+      <span
+        >In game code, <code>const enum</code> is ideal for naming states, directions, tile types, and any other closed set of values
+        you compare but never iterate.</span
+      >
+    </li>
+  </ul>
+</section>

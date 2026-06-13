@@ -1,25 +1,447 @@
-<!-- Stub: UNDER CONSTRUCTION — full content coming soon -->
+<!--
+  readonly-arrays-immutability.html
+  TypeScript Academy — Functions Track
+  Module: Working with Data
+  Lesson: Readonly Arrays and Immutability
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Declare readonly arrays and tuples using <code>readonly</code> and <code>ReadonlyArray&lt;T&gt;</code></li>
+    <li>Explain the difference between runtime immutability and compile-time immutability in TypeScript</li>
+    <li>Use <code>as const</code> to create deeply immutable literal values</li>
+    <li>Identify when to prefer readonly types in function signatures to protect caller data</li>
+    <li>Recognize the common mistake of mutating a readonly reference through a widened type</li>
   </ul>
 </section>
 
-<h2>UNDER CONSTRUCTION</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Picture a game where you define a fixed list of valid spawn points on a map. You pass that list to a dozen different systems: the
+  renderer, the collision detector, the enemy AI. If any one of those systems accidentally pushes a new point onto the array, or sorts
+  it in place, every other system silently sees corrupted data. The bug will be hard to trace and unpredictable in its effects.
+</p>
+
+<p>
+  TypeScript gives you a way to prevent this class of bug entirely at compile time: <strong>readonly arrays</strong>. By marking an
+  array as readonly, you tell both TypeScript and your future self that this data is meant to be observed, not modified. No push. No
+  pop. No splice. The compiler enforces the contract.
+</p>
+
+<p>
+  In this lesson you will learn how readonly arrays work, how they relate to the broader concept of immutability in TypeScript, and how
+  to apply them confidently in function signatures and game data structures.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>Declaring a Readonly Array</h2>
+
+<p>
+  There are two equivalent syntaxes for a readonly array. Both mean exactly the same thing to the TypeScript compiler — choose
+  whichever reads more clearly in context.
+</p>
+
+<pre><code class="language-typescript">
+// Syntax 1: readonly modifier before the element type
+const spawnPoints: readonly [number, number][] = [
+  [100, 200],
+  [400, 150],
+  [700, 300],
+];
+
+// Syntax 2: ReadonlyArray generic
+const spawnPoints2: ReadonlyArray<[number, number]> = [
+  [100, 200],
+  [400, 150],
+  [700, 300],
+];
+</code></pre>
+
+<p>With either syntax, TypeScript will now reject any call that would mutate the array:</p>
+
+<pre><code class="language-typescript">
+spawnPoints.push([50, 80]);   // Error: Property 'push' does not exist on type 'readonly'
+spawnPoints.pop();            // Error: Property 'pop' does not exist on type 'readonly'
+spawnPoints[0] = [0, 0];     // Error: Index signature in type 'readonly' only permits reading
+</code></pre>
+
+<p>Read operations are completely unaffected. You can still iterate, map, filter, and index as normal.</p>
+
+<pre><code class="language-typescript">
+// All of these are fine
+const first = spawnPoints[0];
+const count = spawnPoints.length;
+const mapped = spawnPoints.map(([x, y]) => ({ x, y }));
+for (const point of spawnPoints) {
+  console.log(point);
+}
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      Readonly arrays still have access to all non-mutating array methods: <code>map</code>, <code>filter</code>, <code>find</code>,
+      <code>reduce</code>, <code>forEach</code>, <code>slice</code>, and more. The restriction only applies to methods that change the
+      array in place.
+    </p>
   </div>
 </div>
 
+<h2>Readonly in Function Parameters</h2>
+
+<p>
+  The most important place to use readonly arrays is in function signatures. When a function accepts a readonly array, you are making a
+  promise to callers: "I will not modify your data." This lets callers pass in their own mutable arrays without fear.
+</p>
+
+<pre><code class="language-typescript">
+// This function promises not to mutate the array it receives
+function getClosestSpawn(
+  playerX: number,
+  playerY: number,
+  spawns: readonly [number, number][]
+): [number, number] {
+  return spawns.reduce((best, point) => {
+    const distBest = Math.hypot(best[0] - playerX, best[1] - playerY);
+    const distPoint = Math.hypot(point[0] - playerX, point[1] - playerY);
+    return distPoint < distBest ? point : best;
+  });
+}
+
+// A mutable array can be passed to a readonly parameter — this is always safe
+const mutableSpawns: [number, number][] = [[100, 200], [400, 150]];
+const closest = getClosestSpawn(300, 300, mutableSpawns);
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      As a general rule: if a function only reads from an array parameter, declare it as
+      <code>readonly</code>. This widens what callers can pass in and makes the function's intent explicit. It costs nothing at
+      runtime.
+    </p>
+  </div>
+</div>
+
+<p>
+  The direction of assignability is worth understanding clearly. A mutable array is assignable to a readonly parameter, but the reverse
+  is not true without an explicit assertion.
+</p>
+
+<pre><code class="language-typescript">
+const readonlyNums: readonly number[] = [1, 2, 3];
+const mutableNums: number[] = [1, 2, 3];
+
+// OK: mutable -> readonly (safe — you are adding a restriction)
+function logAll(items: readonly number[]) { /* ... */ }
+logAll(mutableNums);
+
+// Error: readonly -> mutable (unsafe — you would be removing a restriction)
+function sortInPlace(items: number[]) { items.sort(); }
+sortInPlace(readonlyNums); // Error: Argument of type 'readonly number[]' is not assignable
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      Mutable arrays can flow into readonly parameters. Readonly arrays cannot flow into mutable parameters. The readonly modifier is a
+      narrowing of what operations are permitted, not a different kind of array.
+    </p>
+  </div>
+</div>
+
+<h2>Compile-Time vs. Runtime Immutability</h2>
+
+<p>
+  TypeScript's <code>readonly</code> is a <strong>compile-time</strong> constraint only. It disappears completely after transpilation.
+  The underlying JavaScript array is still a plain array object and nothing prevents mutation at runtime if you bypass the type system.
+</p>
+
+<pre><code class="language-typescript">
+const scores: readonly number[] = [10, 20, 30];
+
+// TypeScript will catch this:
+// scores.push(40); // Error
+
+// But this bypasses the type checker entirely:
+(scores as number[]).push(40);
+console.log(scores); // [10, 20, 30, 40] — mutated at runtime!
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Using <code>as</code> to cast away <code>readonly</code> is a code smell. It silences the compiler without fixing the underlying
+      design. If you find yourself doing this, reconsider whether the data should be mutable in the first place.
+    </p>
+  </div>
+</div>
+
+<p>
+  If you need true runtime immutability, use <code>Object.freeze()</code>. This prevents mutation even in plain JavaScript, but it only
+  freezes one level deep.
+</p>
+
+<pre><code class="language-typescript">
+const frozenScores = Object.freeze([10, 20, 30]);
+frozenScores.push(40); // Throws TypeError in strict mode at runtime
+</code></pre>
+
+<p>
+  In practice, for most game data structures, compile-time immutability is sufficient. The goal is to catch accidental mutations during
+  development, not to guard against deliberate runtime attacks.
+</p>
+
+<h2>Deep Immutability with <code>as const</code></h2>
+
+<p>
+  The <code>as const</code> assertion is a powerful shorthand that turns any literal value into its narrowest possible readonly type.
+  For arrays, every element becomes its literal type and the array itself becomes readonly.
+</p>
+
+<pre><code class="language-typescript">
+// Without as const: inferred as string[]
+const directions = ["up", "down", "left", "right"];
+
+// With as const: inferred as readonly ["up", "down", "left", "right"]
+const directions2 = ["up", "down", "left", "right"] as const;
+
+// You can now use the type as a union
+type Direction = typeof directions2[number];
+// type Direction = "up" | "down" | "left" | "right"
+
+function move(dir: Direction) {
+  console.log(`Moving ${dir}`);
+}
+
+move("up");    // OK
+move("diagonal"); // Error: Argument of type '"diagonal"' is not assignable
+</code></pre>
+
+<p>This pattern is especially useful for defining game configuration data that doubles as a source of truth for a union type.</p>
+
+<pre><code class="language-typescript">
+const ACTOR_TAGS = ["player", "enemy", "projectile", "pickup"] as const;
+type ActorTag = typeof ACTOR_TAGS[number];
+
+function tagActor(tag: ActorTag) {
+  // TypeScript knows exactly which strings are valid
+  console.log(`Tagging actor as: ${tag}`);
+}
+
+tagActor("player");     // OK
+tagActor("obstacle");   // Error at compile time
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      The <code>typeof Array[number]</code> pattern is a clean way to derive a union type from an <code>as const</code> array. It keeps
+      your union and your list in sync automatically: add a value to the array and the union updates for free.
+    </p>
+  </div>
+</div>
+
+<h2>Readonly Tuples</h2>
+
+<p>
+  Tuples are fixed-length arrays where each position has a specific type. You can make them readonly the same way as regular arrays.
+</p>
+
+<pre><code class="language-typescript">
+// A mutable tuple
+type Point2D = [number, number];
+
+// A readonly tuple
+type ReadonlyPoint2D = readonly [number, number];
+
+function reflectX(point: ReadonlyPoint2D): ReadonlyPoint2D {
+  return [-point[0], point[1]];
+}
+
+const origin: ReadonlyPoint2D = [0, 0];
+const reflected = reflectX([3, 4]); // [−3, 4]
+
+// Can't mutate
+origin[0] = 5; // Error: Cannot assign to '0' because it is a read-only property
+</code></pre>
+
+<p>
+  Readonly tuples are a good fit for representing immutable geometric data like positions, sizes, or color channels where the structure
+  is fixed and mutation would be a bug.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The example below defines a readonly array of spawn positions using <code>as const</code>. A function picks a random one and places
+  an actor at that point. Notice that the spawn list cannot be mutated anywhere in the code, even though it is passed between
+  functions.
+</p>
+
+<excalibur-playground label="Try It: Readonly Spawn Points" height="500">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    // A readonly tuple type for 2D positions
+    type Position = readonly [number, number];
+
+    // As const gives us a readonly array of readonly tuples
+    // and narrows each value to its literal type
+    const SPAWN_POSITIONS = [
+      [80,  80],
+      [320, 80],
+      [560, 80],
+      [80,  280],
+      [320, 280],
+      [560, 280],
+    ] as const satisfies ReadonlyArray<readonly [number, number]>;
+
+    // This function accepts a readonly array — it promises not to mutate it
+    function pickRandom(positions: ReadonlyArray<Position>): Position {
+      const index = Math.floor(Math.random() * positions.length);
+      return positions[index];
+    }
+
+    const game = new ex.Engine({
+      width: 640,
+      height: 360,
+      backgroundColor: ex.Color.fromHex("#1a1a2e"),
+    });
+
+    // Spawn an actor at each defined position
+    for (const [x, y] of SPAWN_POSITIONS) {
+      const dot = new ex.Actor({
+        x,
+        y,
+        width: 20,
+        height: 20,
+        color: ex.Color.fromHex("#e94560"),
+      });
+      game.add(dot);
+    }
+
+    // Highlight a randomly chosen spawn with a different color
+    const [hx, hy] = pickRandom(SPAWN_POSITIONS);
+    const highlight = new ex.Actor({
+      x: hx,
+      y: hy,
+      width: 28,
+      height: 28,
+      color: ex.Color.fromHex("#f5a623"),
+    });
+    game.add(highlight);
+
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Protect a Config Object Array</div>
+  <div class="exercise__body">
+    <p>
+      You are building a wave system for a tower defense game. Each wave is described by a config object with an enemy type and a
+      count. Your task is to define these configs as a readonly structure and write a function that reads from them safely.
+    </p>
+    <ol>
+      <li>
+        Declare a <code>WaveConfig</code> type with two properties: <code>enemyType</code> (a string literal union of at least three
+        types, e.g. <code>"grunt" | "tank" | "flyer"</code>) and <code>count</code> (a number).
+      </li>
+      <li>
+        Create a <code>WAVE_CONFIGS</code> constant typed as <code>ReadonlyArray&lt;WaveConfig&gt;</code>
+        with at least three entries.
+      </li>
+      <li>
+        Write a function <code>getWave(index: number, configs: ReadonlyArray&lt;WaveConfig&gt;)</code> that returns the config at the
+        given index, or <code>undefined</code> if the index is out of range.
+      </li>
+      <li>Call <code>getWave</code> with index 1 and log the result to verify it works.</li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript should reject any attempt to push, pop, or reassign elements of
+      <code>WAVE_CONFIGS</code>, and <code>getWave</code> should return the correct entry or <code>undefined</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Derive a Union from a Readonly Config Array</div>
+  <p>
+    Extend your wave config solution. Using <code>as const</code> on your <code>WAVE_CONFIGS</code> array, derive a
+    <code>WaveEnemyType</code> union automatically from the <code>enemyType</code> values in the array using
+    <code>typeof WAVE_CONFIGS[number]["enemyType"]</code>. Then write a function that accepts a <code>WaveEnemyType</code> parameter
+    and returns a display label for that enemy. TypeScript should reject any string that is not a valid enemy type at compile time,
+    without you ever writing the union by hand.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span
+        >Use <code>readonly T[]</code> or <code>ReadonlyArray&lt;T&gt;</code> to declare arrays that cannot be mutated through that
+        reference.</span
+      >
+    </li>
+    <li>
+      <span>Mutable arrays are assignable to readonly parameters, but readonly arrays cannot be passed to mutable parameters.</span>
+    </li>
+    <li>
+      <span
+        >TypeScript's <code>readonly</code> is a compile-time check only. It does not prevent runtime mutation if you cast the type
+        away.</span
+      >
+    </li>
+    <li>
+      <span>The <code>as const</code> assertion creates a deeply readonly literal type, narrowing each value to its exact type.</span>
+    </li>
+    <li>
+      <span
+        >The <code>typeof Array[number]</code> pattern derives a union type from an <code>as const</code> array, keeping your type and
+        data in sync.</span
+      >
+    </li>
+    <li>
+      <span
+        >Prefer readonly parameters for any function that only reads from an array. It makes intent clear and widens what callers can
+        safely pass in.</span
+      >
+    </li>
   </ul>
 </section>
