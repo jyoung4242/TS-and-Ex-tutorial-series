@@ -1,0 +1,463 @@
+<!--
+  class-basics.html
+  ==================
+  Track:  Object-Oriented TypeScript
+  Module: Classes
+  Lesson: Class Basics
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Declare a TypeScript class with typed properties and a constructor</li>
+    <li>Use constructor parameter shorthand to reduce boilerplate</li>
+    <li>Add typed methods to a class and understand <code>this</code> inside them</li>
+    <li>Apply class patterns to model game entities in ExcaliburJS</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  When a game grows beyond a few actors, you start repeating the same property bundles everywhere: every enemy has a name, hit points,
+  a speed, and methods like <code>takeDamage</code> and <code>isAlive</code>. Plain objects fall apart here because there is no
+  contract enforcing their shape and no shared place to put the behavior. Classes solve both problems at once.
+</p>
+
+<p>
+  TypeScript classes build directly on JavaScript classes and add a layer of static type-checking on top. You get typed properties,
+  checked method signatures, and full IDE support including autocomplete and refactoring tools. If you have used object type
+  annotations, most of the ideas here will feel familiar. The difference is that a class produces both a type and a runtime value (the
+  constructor function) at the same time.
+</p>
+
+<p>
+  In this lesson you will build up a small <code>Enemy</code> class step by step, the same kind of entity you would find inside a real
+  ExcaliburJS game. Every new TypeScript concept is introduced through that single running example so the progression feels concrete
+  rather than academic.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 1: Declaring a Class
+     ═══════════════════════════════════════════════ -->
+<h2>Declaring a Class</h2>
+
+<p>
+  A class declaration names the class, lists its properties with their types, and defines a <code>constructor</code> that runs when you
+  call <code>new ClassName()</code>. TypeScript requires every property to either be assigned in the constructor or marked optional
+  with <code>?</code>. If you forget, the compiler surfaces an error immediately.
+</p>
+
+<pre><code class="language-typescript">class Enemy {
+  name: string;
+  hp: number;
+  speed: number;
+
+  constructor(name: string, hp: number, speed: number) {
+    this.name  = name;
+    this.hp    = hp;
+    this.speed = speed;
+  }
+}
+
+const goblin = new Enemy("Goblin", 30, 80);
+console.log(goblin.name); // "Goblin"
+console.log(goblin.hp);   // 30
+</code></pre>
+
+<p>
+  TypeScript infers the type of <code>goblin</code> as <code>Enemy</code>
+  automatically. Every property access is checked, and passing the wrong argument type to the constructor is a compile-time error.
+</p>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      TypeScript enforces that every declared property is definitely assigned before the constructor exits. If your tsconfig has
+      <code>strictPropertyInitialization: true</code> (the default with <code>strict: true</code>), leaving a property unset is an
+      error, not a silent <code>undefined</code>.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2: Constructor Parameter Shorthand
+     ═══════════════════════════════════════════════ -->
+<h2>Constructor Parameter Shorthand</h2>
+
+<p>
+  Declaring a property and then assigning it in the constructor is repetitive. TypeScript offers a shorthand: prefix a constructor
+  parameter with a keyword like <code>public</code> or <code>readonly</code> and TypeScript declares the property and assigns it for
+  you automatically.
+</p>
+
+<pre><code class="language-typescript">// Before shorthand (verbose)
+class Enemy {
+  name: string;
+  hp: number;
+  speed: number;
+
+  constructor(name: string, hp: number, speed: number) {
+    this.name  = name;
+    this.hp    = hp;
+    this.speed = speed;
+  }
+}
+
+// After shorthand (concise, identical behavior)
+class Enemy {
+  constructor(
+    public name: string,
+    public hp: number,
+    public speed: number,
+  ) {}
+
+  takeDamage(amount: number): void {
+    this.hp -= amount;
+  }
+
+  isAlive(): boolean {
+    return this.hp > 0;
+  }
+}
+</code></pre>
+
+<p>
+  Both versions compile to the same JavaScript. The shorthand is the style you will see in most TypeScript codebases and throughout
+  ExcaliburJS source code, so it is worth getting comfortable with it early.
+</p>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Coming Up: Access Modifiers</div>
+    <p>
+      You will notice keywords like <code>public</code>, <code>private</code>, and <code>readonly</code> on class properties throughout
+      TypeScript codebases. These control visibility and mutability and are covered in depth in the next module. For now, using
+      <code>public</code> on shorthand parameters is enough to make the syntax work.
+    </p>
+  </div>
+</div>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      The shorthand only works in the <strong>constructor</strong>. Placing a visibility keyword on any other method parameter is a
+      syntax error.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 4: Methods and `this`
+     ═══════════════════════════════════════════════ -->
+<h2>Methods and <code>this</code></h2>
+
+<p>
+  Methods are functions defined inside the class body. Inside a method,
+  <code>this</code> refers to the instance the method was called on. TypeScript knows the type of <code>this</code> automatically from
+  the class definition, so all property accesses through <code>this</code> are checked.
+</p>
+
+<pre><code class="language-typescript">class Enemy {
+  constructor(
+    public  name: string,
+    private hp: number,
+    private maxHp: number,
+  ) {}
+
+  takeDamage(amount: number): void {
+    this.hp = Math.max(0, this.hp - amount);
+  }
+
+  heal(amount: number): void {
+    this.hp = Math.min(this.maxHp, this.hp + amount);
+  }
+
+  isAlive(): boolean {
+    return this.hp > 0;
+  }
+
+  // Returning 'this' enables method chaining
+  describe(): string {
+    return `${this.name} — ${this.hp}/${this.maxHp} HP`;
+  }
+}
+
+const troll = new Enemy("Troll", 100, 100);
+troll.takeDamage(40);
+troll.heal(10);
+console.log(troll.describe()); // "Troll — 70/100 HP"
+console.log(troll.isAlive());  // true
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      Arrow functions stored as class fields (<code>method = () => {}</code>) always bind <code>this</code> lexically. Regular methods
+      do not. In game code you often pass methods as callbacks, and in those cases an arrow field is safer. You will explore this
+      tradeoff in the Higher-Order Functions lesson.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 5: Classes as ExcaliburJS Entities
+     ═══════════════════════════════════════════════ -->
+<h2>Classes in a Game Context</h2>
+
+<p>
+  ExcaliburJS actors are themselves classes. When you extend
+  <code>ex.Actor</code> you are already using class inheritance. But before reaching for full Excalibur actors, it is common to model
+  pure game-data entities (enemies, items, save-state records) as plain TypeScript classes that carry no rendering logic. These are
+  easy to test and easy to serialize.
+</p>
+
+<pre><code class="language-typescript">import * as ex from "excalibur";
+
+// A pure data class — no Excalibur dependency
+class EnemyStats {
+  constructor(
+    public  readonly name: string,
+    private hp: number,
+    public  readonly speed: number,
+    public  readonly scoreValue: number,
+  ) {}
+
+  takeDamage(amount: number): void {
+    this.hp = Math.max(0, this.hp - amount);
+  }
+
+  isAlive(): boolean {
+    return this.hp > 0;
+  }
+}
+
+// An Excalibur actor that owns the stats object
+class EnemyActor extends ex.Actor {
+  private stats: EnemyStats;
+
+  constructor(stats: EnemyStats, pos: ex.Vector) {
+    super({ pos, width: 32, height: 32 });
+    this.stats = stats;
+  }
+
+  onPreUpdate(_engine: ex.Engine, _delta: number): void {
+    if (!this.stats.isAlive()) {
+      this.kill();
+    }
+  }
+
+  hit(damage: number): void {
+    this.stats.takeDamage(damage);
+  }
+}
+
+// Usage
+const goblinStats = new EnemyStats("Goblin", 30, 80, 50);
+const goblin = new EnemyActor(goblinStats, ex.vec(200, 300));
+</code></pre>
+
+<p>
+  Separating the stats model from the visual actor is a common pattern in game development. It lets you unit-test damage logic without
+  needing an Excalibur engine instance, and it keeps each class focused on a single responsibility.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The playground below defines a typed <code>Enemy</code> class and wires it into a minimal Excalibur scene. Open the code, read the
+  annotations, then try the exercises underneath.
+</p>
+
+<excalibur-playground label="Try It: Class Basics" height="520">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    // --- Typed data class ---
+    class Enemy {
+      constructor(
+        public  readonly name: string,
+        private hp: number,
+        public  readonly speed: number,
+        public  readonly color: ex.Color,
+      ) {}
+
+      takeDamage(amount: number): void {
+        this.hp = Math.max(0, this.hp - amount);
+      }
+
+      isAlive(): boolean {
+        return this.hp > 0;
+      }
+
+      label(): string {
+        return `${this.name} (${this.hp} HP)`;
+      }
+    }
+
+    // --- Excalibur actor that wraps the data class ---
+    class EnemyActor extends ex.Actor {
+      private enemy: Enemy;
+      private label: ex.Label;
+
+      constructor(enemy: Enemy, pos: ex.Vector) {
+        super({
+          pos,
+          width:  40,
+          height: 40,
+          color:  enemy.color,
+        });
+        this.enemy = enemy;
+
+        this.label = new ex.Label({
+          text: enemy.label(),
+          pos:  ex.vec(0, -28),
+          font: new ex.Font({ size: 11, color: ex.Color.White }),
+        });
+        this.addChild(this.label);
+      }
+
+      onPreUpdate(_engine: ex.Engine, _delta: number): void {
+        this.label.text = this.enemy.label();
+
+        if (!this.enemy.isAlive()) {
+          this.kill();
+        }
+      }
+
+      hit(damage: number): void {
+        this.enemy.takeDamage(damage);
+      }
+    }
+
+    // --- Scene setup ---
+    const game = new ex.Engine({ width: 600, height: 400, background: ex.Color.fromHex("#1a1a2e") });
+
+    const enemies: EnemyActor[] = [
+      new EnemyActor(new Enemy("Goblin",  30, 80, ex.Color.fromHex("#4caf50")), ex.vec(150, 200)),
+      new EnemyActor(new Enemy("Orc",     60, 50, ex.Color.fromHex("#ff5722")), ex.vec(300, 200)),
+      new EnemyActor(new Enemy("Troll",  100, 30, ex.Color.fromHex("#9c27b0")), ex.vec(450, 200)),
+    ];
+
+    enemies.forEach(e => game.currentScene.add(e));
+
+    // Click an enemy to deal 10 damage
+    enemies.forEach(actor => {
+      actor.on("pointerdown", () => actor.hit(10));
+    });
+
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Typed Projectile Class</div>
+  <div class="exercise__body">
+    <p>
+      Model a projectile (like a fireball or arrow) that a player character might fire. Use the class declaration and shorthand
+      patterns from this lesson.
+    </p>
+    <ol>
+      <li>
+        Declare a <code>Projectile</code> class using constructor parameter shorthand with these typed members:
+        <ul>
+          <li><code>public type: string</code> (e.g. <code>"fireball"</code>)</li>
+          <li><code>public damage: number</code></li>
+          <li><code>public speed: number</code></li>
+        </ul>
+      </li>
+      <li>
+        Add an <code>active: boolean</code> property (not a shorthand parameter) and set it to <code>true</code> inside the constructor
+        body.
+      </li>
+      <li>
+        Add a <code>detonate(): void</code> method that logs <code>"[type] detonated for [damage] damage!"</code> and sets
+        <code>active</code> to <code>false</code>.
+      </li>
+      <li>Add an <code>isActive(): boolean</code> method that returns <code>this.active</code>.</li>
+      <li>
+        Instantiate two projectiles with different types and damage values, call <code>detonate()</code> on one, then log both
+        <code>isActive()</code> results and confirm only one is <code>false</code>.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> The compiler accepts the class with no errors, the detonated projectile returns
+      <code>false</code> from <code>isActive()</code>, and the untouched one returns <code>true</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Item Drop Registry</div>
+  <p>
+    Add a static registry to your enemy system. Give the
+    <code>Enemy</code> class a <code>static registry: Enemy[] = []</code> property and a
+    <code>static register(enemy: Enemy): void</code> method that pushes each new enemy into the array. Call <code>register</code> at
+    the end of the constructor so every instance auto-registers. Then add a <code>static living(): Enemy[]</code> method that returns
+    only the enemies where <code>isAlive()</code> is <code>true</code>. Instantiate three enemies, deal lethal damage to one, and
+    verify that <code>Enemy.living().length</code> returns <code>2</code>.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span
+        >A TypeScript class declares typed properties, a constructor, and methods in one block, giving you both a runtime value and a
+        compile-time type.</span
+      >
+    </li>
+    <li>
+      <span
+        >Constructor parameter shorthand (prefixing a parameter with a keyword like <code>public</code>) declares and assigns a
+        property in a single step, eliminating repetitive boilerplate.</span
+      >
+    </li>
+    <li>
+      <span
+        >TypeScript knows the type of <code>this</code> inside class methods automatically, so all property and method accesses are
+        statically checked.</span
+      >
+    </li>
+    <li>
+      <span
+        >Separating pure data classes from ExcaliburJS actor classes keeps game logic testable and each class focused on a single
+        responsibility.</span
+      >
+    </li>
+    <li>
+      <span
+        >Access modifiers like <code>private</code> and <code>readonly</code> control visibility and mutability — covered in depth in
+        the Access Modifiers module.</span
+      >
+    </li>
+  </ul>
+</section>

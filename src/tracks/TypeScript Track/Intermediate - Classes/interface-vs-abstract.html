@@ -1,0 +1,567 @@
+<!--
+  abstract-classes-vs-interfaces.html
+  TypeScript Academy — lesson content fragment
+  Register in curriculum-manifest.js before use.
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Explain what an abstract class is and what distinguishes it from a concrete class</li>
+    <li>Declare an interface and implement it across multiple classes</li>
+    <li>Choose the right construct for a given design problem in an ExcaliburJS game</li>
+    <li>Identify the two key things only abstract classes can do that interfaces cannot</li>
+    <li>Avoid the most common mistake of reaching for one construct when the other is the better fit</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  You are building a game. You have <code>Player</code>, <code>Enemy</code>, and <code>Collectible</code> all needing a
+  <code>update()</code> method. You want TypeScript to enforce that contract everywhere it matters. You reach for... what exactly? An
+  interface? An abstract class? Both?
+</p>
+
+<p>
+  Interfaces and abstract classes look similar on the surface: both let you define a shape that other types must satisfy, and both
+  prevent direct instantiation of that shape alone. But they work very differently at runtime, they signal different design intentions,
+  and picking the wrong one causes real pain later. This lesson draws a sharp line between them so you always know which tool to reach
+  for.
+</p>
+
+<p>
+  The examples here are grounded in ExcaliburJS, where the interface vs abstract class decision comes up constantly when building actor
+  hierarchies and component systems.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 1: Interfaces
+     ═══════════════════════════════════════════════ -->
+<h2>Interfaces: Pure Contracts</h2>
+
+<p>
+  An interface is a compile-time-only contract. It describes a shape: the names and types of properties and methods an object must
+  have. It produces <strong>zero</strong> JavaScript output. There is nothing at runtime.
+</p>
+
+<pre><code class="language-typescript">
+interface Updatable {
+  update(elapsedMs: number): void;
+}
+
+interface Drawable {
+  draw(ctx: CanvasRenderingContext2D): void;
+}
+</code></pre>
+
+<p>
+  Any class that <code>implements</code> an interface must provide a concrete body for every member declared in that interface.
+  TypeScript enforces this at compile time.
+</p>
+
+<pre><code class="language-typescript">
+class Bullet implements Updatable, Drawable {
+  private x: number = 0;
+
+  update(elapsedMs: number): void {
+    this.x += 10 * (elapsedMs / 1000);
+  }
+
+  draw(ctx: CanvasRenderingContext2D): void {
+    ctx.fillRect(this.x, 100, 4, 10);
+  }
+}
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      A class can implement as many interfaces as you like. This is the primary way to compose contracts in TypeScript without building
+      deep inheritance chains.
+    </p>
+  </div>
+</div>
+
+<h3>Interfaces describe capability, not origin</h3>
+
+<p>
+  Because interfaces only describe a shape, completely unrelated classes can satisfy the same interface. A <code>UIButton</code> and a
+  <code>PlayerSprite</code> could both implement <code>Drawable</code> without sharing any inheritance relationship. This is structural
+  typing in action.
+</p>
+
+<pre><code class="language-typescript">
+function renderAll(items: Drawable[], ctx: CanvasRenderingContext2D): void {
+  for (const item of items) {
+    item.draw(ctx);
+  }
+}
+
+// Both work here even though they share no base class:
+renderAll([new Bullet(), new UIButton()], ctx);
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Use an interface when you want to describe a capability that many unrelated types might share, or when you need a class to
+      satisfy multiple independent contracts.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2: Abstract Classes
+     ═══════════════════════════════════════════════ -->
+<h2>Abstract Classes: Partial Blueprints</h2>
+
+<p>
+  An abstract class sits between a fully concrete class and an interface. It can contain real, runnable implementation that subclasses
+  automatically inherit, but it can also declare abstract methods that subclasses <em>must</em> override. You cannot instantiate an
+  abstract class directly.
+</p>
+
+<pre><code class="language-typescript">
+abstract class GameActor {
+  protected x: number;
+  protected y: number;
+
+  constructor(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+  }
+
+  // Concrete method: shared by every subclass automatically
+  moveTo(x: number, y: number): void {
+    this.x = x;
+    this.y = y;
+  }
+
+  // Abstract method: every subclass MUST implement this
+  abstract update(elapsedMs: number): void;
+}
+</code></pre>
+
+<p>Now a concrete subclass fills in the abstract gap:</p>
+
+<pre><code class="language-typescript">
+class Enemy extends GameActor {
+  private speed = 80;
+
+  // TypeScript error if this is missing -- abstract method not implemented
+  update(elapsedMs: number): void {
+    this.x += this.speed * (elapsedMs / 1000);
+  }
+}
+
+const e = new Enemy(0, 0);
+e.moveTo(100, 200); // inherited from GameActor
+e.update(16);       // defined on Enemy
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      You cannot do <code>new GameActor(0, 0)</code>. TypeScript will refuse with "Cannot create an instance of an abstract class."
+      This is intentional: abstract classes are blueprints, not finished objects.
+    </p>
+  </div>
+</div>
+
+<h3>Two things only abstract classes can do</h3>
+
+<p>Interfaces are compile-time only, which means they have two hard limits. Abstract classes have neither:</p>
+
+<ol>
+  <li>
+    <strong>Shared implementation.</strong> An abstract class can provide real method bodies that every subclass inherits without
+    repeating code. An interface cannot provide any implementation at all.
+  </li>
+  <li>
+    <strong>State (fields and a constructor).</strong> An abstract class can declare instance fields and initialize them in a
+    constructor. An interface describes the shape of those fields but cannot own or initialize them.
+  </li>
+</ol>
+
+<pre><code class="language-typescript">
+abstract class GameActor {
+  // Fields: only possible in a class
+  protected health: number;
+  protected name: string;
+
+  constructor(name: string, health: number) {
+    this.name = name;
+    this.health = health;
+  }
+
+  // Concrete shared logic
+  isAlive(): boolean {
+    return this.health > 0;
+  }
+
+  takeDamage(amount: number): void {
+    this.health = Math.max(0, this.health - amount);
+  }
+
+  // Subclasses supply this
+  abstract update(elapsedMs: number): void;
+}
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      Abstract classes exist in the compiled JavaScript output as real classes. Interfaces are erased entirely. If you need shared
+      logic or initialized state, you need an abstract class. If you only need a contract with no shared logic, an interface is lighter
+      and more flexible.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3: Side-by-Side Comparison
+     ═══════════════════════════════════════════════ -->
+<h2>Comparing Them Side by Side</h2>
+
+<p>Here is the same design expressed both ways so you can feel the difference:</p>
+
+<h3>As an interface</h3>
+
+<pre><code class="language-typescript">
+interface Damageable {
+  health: number;
+  takeDamage(amount: number): void;
+  isAlive(): boolean;
+}
+
+class Slime implements Damageable {
+  health = 30;
+
+  takeDamage(amount: number): void {
+    this.health = Math.max(0, this.health - amount);
+  }
+
+  isAlive(): boolean {
+    return this.health > 0;
+  }
+}
+
+class Tower implements Damageable {
+  health = 200;
+
+  takeDamage(amount: number): void {
+    this.health = Math.max(0, this.health - amount);
+  }
+
+  // Every class must copy this logic -- no sharing
+  isAlive(): boolean {
+    return this.health > 0;
+  }
+}
+</code></pre>
+
+<h3>As an abstract class</h3>
+
+<pre><code class="language-typescript">
+abstract class Damageable {
+  protected health: number;
+
+  constructor(health: number) {
+    this.health = health;
+  }
+
+  takeDamage(amount: number): void {
+    this.health = Math.max(0, this.health - amount);
+  }
+
+  isAlive(): boolean {
+    return this.health > 0;
+  }
+
+  abstract update(elapsedMs: number): void;
+}
+
+class Slime extends Damageable {
+  constructor() {
+    super(30);
+  }
+  update(elapsedMs: number): void { /* slime logic */ }
+}
+
+class Tower extends Damageable {
+  constructor() {
+    super(200);
+  }
+  update(elapsedMs: number): void { /* tower logic */ }
+}
+</code></pre>
+
+<p>
+  In the abstract class version, <code>takeDamage</code> and <code>isAlive</code> are written once and inherited everywhere. The
+  interface version forces every implementor to repeat them. When that shared logic needs to change, the abstract class makes it a
+  one-line fix.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 4: Combining Both
+     ═══════════════════════════════════════════════ -->
+<h2>Combining Both: The Common Pattern</h2>
+
+<p>
+  In real projects you often use both. An abstract base class provides shared state and logic across a family of related types, while
+  interfaces layer in additional contracts that span unrelated families.
+</p>
+
+<pre><code class="language-typescript">
+// A pure capability contract -- no implementation
+interface Serializable {
+  serialize(): string;
+  deserialize(data: string): void;
+}
+
+// A family base with shared logic
+abstract class GameActor {
+  protected health: number;
+  constructor(health: number) { this.health = health; }
+  isAlive(): boolean { return this.health > 0; }
+  abstract update(elapsedMs: number): void;
+}
+
+// A concrete class that belongs to the family AND satisfies the capability
+class Player extends GameActor implements Serializable {
+  private name: string;
+
+  constructor(name: string) {
+    super(100);
+    this.name = name;
+  }
+
+  update(elapsedMs: number): void {
+    // player movement logic
+  }
+
+  serialize(): string {
+    return JSON.stringify({ name: this.name, health: this.health });
+  }
+
+  deserialize(data: string): void {
+    const parsed = JSON.parse(data);
+    this.name = parsed.name;
+    this.health = parsed.health;
+  }
+}
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Think of it this way: abstract classes express <strong>what a thing is</strong> (an Actor, a Component, a Scene). Interfaces
+      express <strong>what a thing can do</strong>
+      (Serializable, Drawable, Updatable). Using both together is not duplication; it is expressive design.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 5: Decision Guide
+     ═══════════════════════════════════════════════ -->
+<h2>How to Decide</h2>
+
+<p>When you are staring at a blank file wondering which to reach for, work through these questions in order:</p>
+
+<ol>
+  <li>
+    <strong>Do I need shared implementation or initialized state?</strong>
+    Yes: abstract class. No: keep reading.
+  </li>
+  <li>
+    <strong>Is this a contract that unrelated types might need to satisfy?</strong>
+    Yes: interface. No: keep reading.
+  </li>
+  <li>
+    <strong>Am I building a family of related types that share an identity?</strong>
+    Yes: abstract class.
+  </li>
+  <li>
+    <strong>Do I need a type to satisfy multiple independent contracts?</strong>
+    Yes: interfaces (a class can only extend one base, but can implement many interfaces).
+  </li>
+</ol>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      TypeScript classes support single inheritance only. If you make everything an abstract class and a new class needs to inherit
+      from two of them, you are stuck. Interfaces are composable; inheritance chains are not. Favor interfaces for contracts, abstract
+      classes only when shared implementation or state genuinely justifies it.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The code below sets up a small ExcaliburJS scene using an abstract class for shared actor logic and an interface for the
+  <code>Spawnable</code> capability. Read through it, then try adding a <code>Coin</code> class that extends <code>GameActor</code> and
+  implements <code>Spawnable</code>.
+</p>
+
+<excalibur-playground label="Try It: Abstract Classes vs Interfaces" height="520">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    // ---- Interface: a capability, not a family ----
+    interface Spawnable {
+      spawnAt(x: number, y: number): void;
+    }
+
+    // ---- Abstract class: shared logic for all actors ----
+    abstract class GameActor extends ex.Actor {
+      protected health: number;
+
+      constructor(config: ex.ActorArgs & { health: number }) {
+        super(config);
+        this.health = config.health;
+      }
+
+      isAlive(): boolean {
+        return this.health > 0;
+      }
+
+      takeDamage(amount: number): void {
+        this.health = Math.max(0, this.health - amount);
+        console.log(`Health remaining: ${this.health}`);
+      }
+
+      // Subclasses must supply this
+      abstract onUpdate(engine: ex.Engine, elapsedMs: number): void;
+    }
+
+    // ---- Concrete class: extends the family, satisfies Spawnable ----
+    class Enemy extends GameActor implements Spawnable {
+      constructor() {
+        super({ x: 100, y: 100, width: 32, height: 32, health: 50, color: ex.Color.Red });
+      }
+
+      spawnAt(x: number, y: number): void {
+        this.pos = ex.vec(x, y);
+      }
+
+      onUpdate(_engine: ex.Engine, elapsedMs: number): void {
+        this.pos.x += 40 * (elapsedMs / 1000);
+      }
+    }
+
+    // ---- Scene setup ----
+    const game = new ex.Engine({ width: 600, height: 400, backgroundColor: ex.Color.Black });
+    const enemy = new Enemy();
+    enemy.spawnAt(50, 180);
+    game.currentScene.add(enemy);
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Game Actor Hierarchy</div>
+  <div class="exercise__body">
+    <p>In a new TypeScript file, model a small set of game entities using both constructs. Follow each step in order.</p>
+    <ol>
+      <li>Declare an interface called <code>Resettable</code> with a single method: <code>reset(): void</code>.</li>
+      <li>
+        Create an abstract class called <code>BaseEnemy</code> with a <code>protected speed: number</code>
+        field, a constructor that accepts and stores that speed, a concrete
+        <code>describeSpeed(): string</code> method that returns a string like <code>"Speed: 80"</code>, and an abstract method
+        <code>move(elapsedMs: number): void</code>.
+      </li>
+      <li>
+        Create two concrete classes, <code>Grunt</code> and <code>Sprinter</code>, both extending <code>BaseEnemy</code> and both
+        implementing <code>Resettable</code>. Each must supply its own <code>move</code> and <code>reset</code> logic.
+      </li>
+      <li>
+        Write a function <code>resetAll(enemies: Resettable[]): void</code> that calls <code>reset()</code> on each enemy. Call it with
+        a mixed array of <code>Grunt</code> and <code>Sprinter</code> instances.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript compiles with no errors. Both concrete classes satisfy the interface. The abstract
+      method on <code>BaseEnemy</code> forces each subclass to provide its own <code>move</code> implementation.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Add a Second Interface and a Type Guard</div>
+  <p>
+    Declare a second interface, <code>Damageable</code>, with <code>health: number</code> and
+    <code>takeDamage(amount: number): void</code>. Make <code>BaseEnemy</code> implement it with shared logic. Then write a type guard
+    function <code>isDamageable(obj: unknown): obj is Damageable</code> and use it to safely call <code>takeDamage</code> on a mixed
+    array of actors that may or may not implement the interface. Verify that TypeScript narrows the type correctly inside the guard
+    branch.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span
+        >Interfaces are compile-time-only contracts that describe a shape; they produce no JavaScript output and cannot contain
+        implementation or state.</span
+      >
+    </li>
+    <li>
+      <span
+        >Abstract classes are real classes that cannot be instantiated directly; they can provide shared method bodies and initialized
+        fields that subclasses inherit.</span
+      >
+    </li>
+    <li>
+      <span
+        >A class can implement multiple interfaces but can only extend one abstract class; favor interfaces for cross-cutting
+        capabilities and abstract classes for related families that share logic.</span
+      >
+    </li>
+    <li>
+      <span>The two things only abstract classes can do: hold shared implementation and own initialized state via a constructor.</span>
+    </li>
+    <li>
+      <span
+        >The two constructs work best together: use abstract classes to express what a type is, and interfaces to express what a type
+        can do.</span
+      >
+    </li>
+  </ul>
+</section>

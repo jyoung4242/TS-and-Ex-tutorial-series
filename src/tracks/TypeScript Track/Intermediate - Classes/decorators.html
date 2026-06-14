@@ -1,0 +1,600 @@
+<!--
+  decorators-and-classes.html
+  ============================
+  Module: Decorators and Classes in TypeScript
+  Track: TypeScript Deep Dives
+  Lesson slug: decorators-and-classes
+
+  Registration snippet for curriculum-manifest.js:
+  {
+    id: "decorators-and-classes",
+    title: "Decorators and Classes",
+    description: "Learn how TypeScript class decorators, method decorators, property decorators, and parameter decorators work — and how to apply them to real ExcaliburJS game entities.",
+    src: "decorators-and-classes.html",
+    duration: "35 min"
+  }
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Explain what a decorator is and why TypeScript uses them with classes</li>
+    <li>Write class decorators, method decorators, property decorators, and parameter decorators</li>
+    <li>Read and understand the decorator signature for each decorator type</li>
+    <li>Compose multiple decorators on a single class or method and predict their execution order</li>
+    <li>Apply decorators to ExcaliburJS actors to add reusable, cross-cutting behavior</li>
+  </ul>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you have a dozen different enemy classes in your game. Each one needs logging
+  when it is created, validation that its health value is positive, and a tag that marks
+  it as an <code>Enemy</code> for the collision system. You could copy that boilerplate
+  into every class, but the moment a requirement changes you are editing a dozen files.
+  Decorators let you write that logic once, attach it with a single line, and move on.
+</p>
+
+<p>
+  A decorator is a function that receives information about a class, method, property, or
+  parameter at definition time and can read or modify it. TypeScript adopted the decorator
+  proposal from JavaScript, so you will see decorators used heavily in frameworks like
+  Angular, NestJS, and TypeORM. They are also a great fit for game code where behavior
+  patterns repeat across many entity types.
+</p>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Compiler flag required</div>
+    <p>
+      Decorators are a stage-3 JavaScript proposal. To use them in TypeScript you must
+      enable <code>"experimentalDecorators": true</code> in your <code>tsconfig.json</code>.
+      If you also want decorator metadata (for dependency injection patterns), add
+      <code>"emitDecoratorMetadata": true</code>. Without the flag the compiler will
+      refuse to compile decorator syntax.
+    </p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 1: CLASS DECORATORS
+     ═══════════════════════════════════════════════ -->
+<h2>Class Decorators</h2>
+
+<p>
+  A class decorator is applied to the constructor of a class. It receives the constructor
+  as its only argument. You can use it to inspect the class, add static properties, or
+  wrap the constructor entirely.
+</p>
+
+<pre><code class="language-typescript">
+// The simplest possible class decorator: it receives the class constructor.
+function Loggable(constructor: Function) {
+  console.log(`Class defined: ${constructor.name}`);
+}
+
+@Loggable
+class Player {
+  name: string;
+  constructor(name: string) {
+    this.name = name;
+  }
+}
+
+// Console output at class-definition time (not at instantiation time):
+// "Class defined: Player"
+</code></pre>
+
+<p>
+  Notice the decorator runs when the class is <em>defined</em>, not when it is
+  instantiated. That makes class decorators ideal for registration or metadata tasks.
+</p>
+
+<h3>Returning a new constructor</h3>
+
+<p>
+  If your class decorator returns a value, TypeScript expects it to be a constructor that
+  extends the original class. This is how you wrap or augment the class itself.
+</p>
+
+<pre><code class="language-typescript">
+// A decorator that seals the class so no new properties can be added to instances.
+function Sealed(constructor: Function) {
+  Object.seal(constructor);
+  Object.seal(constructor.prototype);
+}
+
+// A decorator factory that stamps a tag onto every instance.
+function Tagged(tag: string) {
+  return function <T extends { new (...args: any[]): object }>(Base: T) {
+    return class extends Base {
+      entityTag = tag;
+    };
+  };
+}
+
+@Tagged("enemy")
+class Goblin {
+  health = 30;
+}
+
+const g = new Goblin();
+console.log((g as any).entityTag); // "enemy"
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Decorator factories give you parameters</div>
+    <p>
+      <code>@Tagged("enemy")</code> is a <strong>decorator factory</strong>: a function
+      that returns a decorator. Use this pattern whenever you need to pass configuration
+      to a decorator. The outer function captures the argument; the inner function is
+      the actual decorator.
+    </p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2: METHOD DECORATORS
+     ═══════════════════════════════════════════════ -->
+<h2>Method Decorators</h2>
+
+<p>
+  A method decorator is placed just before a method definition. It receives three
+  arguments: the prototype of the class (or the constructor for static methods), the
+  method name as a string, and the property descriptor for that method.
+</p>
+
+<pre><code class="language-typescript">
+// Signature of a method decorator
+function MyDecorator(
+  target: Object,           // prototype (or constructor for static)
+  propertyKey: string,      // method name
+  descriptor: PropertyDescriptor
+): PropertyDescriptor | void {
+  // descriptor.value is the original method function
+}
+</code></pre>
+
+<p>
+  The most common use is to wrap <code>descriptor.value</code> with your own function,
+  then return the modified descriptor.
+</p>
+
+<pre><code class="language-typescript">
+// Log every call to a method, including arguments and return value.
+function LogCall(
+  target: Object,
+  propertyKey: string,
+  descriptor: PropertyDescriptor
+): PropertyDescriptor {
+  const original = descriptor.value as Function;
+
+  descriptor.value = function (...args: unknown[]) {
+    console.log(`[${propertyKey}] called with`, args);
+    const result = original.apply(this, args);
+    console.log(`[${propertyKey}] returned`, result);
+    return result;
+  };
+
+  return descriptor;
+}
+
+class Enemy {
+  health = 50;
+
+  @LogCall
+  takeDamage(amount: number): number {
+    this.health -= amount;
+    return this.health;
+  }
+}
+
+const spider = new Enemy();
+spider.takeDamage(10);
+// [takeDamage] called with [10]
+// [takeDamage] returned 40
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Arrow functions and decorators do not mix</div>
+    <p>
+      If you define a method as a class field arrow function (<code>takeDamage = () => {}</code>),
+      a method decorator cannot intercept it. Arrow function class fields are instance
+      properties, not prototype methods, so the decorator has no descriptor to wrap.
+      Stick to regular method syntax when you want decorators to work.
+    </p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3: PROPERTY DECORATORS
+     ═══════════════════════════════════════════════ -->
+<h2>Property Decorators</h2>
+
+<p>
+  A property decorator fires on a class property declaration. It receives the prototype
+  and the property key, but <em>not</em> a descriptor, because properties do not have
+  descriptors at class definition time. You commonly use property decorators to record
+  metadata or define a getter/setter on the prototype.
+</p>
+
+<pre><code class="language-typescript">
+// Validate that a numeric property is always positive.
+function Positive(target: Object, propertyKey: string) {
+  let value: number;
+
+  Object.defineProperty(target, propertyKey, {
+    get() {
+      return value;
+    },
+    set(incoming: number) {
+      if (incoming < 0) {
+        throw new RangeError(`${propertyKey} must be positive, got ${incoming}`);
+      }
+      value = incoming;
+    },
+    enumerable: true,
+    configurable: true,
+  });
+}
+
+class Actor {
+  @Positive
+  health!: number;
+}
+
+const actor = new Actor();
+actor.health = 100;   // fine
+actor.health = -5;    // throws: "health must be positive, got -5"
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">The definite assignment assertion</div>
+    <p>
+      The <code>!</code> after <code>health</code> tells TypeScript "I promise this will
+      be assigned before use." Without it, the compiler complains that a decorated
+      property may be undefined, because it cannot follow the
+      <code>Object.defineProperty</code> logic inside the decorator.
+    </p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 4: PARAMETER DECORATORS
+     ═══════════════════════════════════════════════ -->
+<h2>Parameter Decorators</h2>
+
+<p>
+  A parameter decorator is placed just before a parameter in a constructor or method
+  signature. It receives the prototype, the method name (or <code>undefined</code> for
+  constructor parameters), and the zero-based index of the parameter.
+</p>
+
+<pre><code class="language-typescript">
+// Mark a parameter's index in metadata so an injection system can read it later.
+const INJECTED_PARAMS = new Map<Function, number[]>();
+
+function Inject(target: Object, _methodKey: string | symbol, paramIndex: number) {
+  const ctor = target as Function;
+  const existing = INJECTED_PARAMS.get(ctor) ?? [];
+  existing.push(paramIndex);
+  INJECTED_PARAMS.set(ctor, existing);
+}
+
+class Scene {
+  constructor(@Inject public renderer: unknown) {}
+}
+
+console.log(INJECTED_PARAMS.get(Scene)); // [0]
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Parameter decorators are rarely standalone</div>
+    <p>
+      On their own, parameter decorators can only record information. They are designed
+      to be paired with a class or method decorator that reads that information and acts
+      on it. This two-decorator pattern is the foundation of dependency injection in
+      frameworks like Angular and NestJS.
+    </p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 5: DECORATOR COMPOSITION AND ORDER
+     ═══════════════════════════════════════════════ -->
+<h2>Composing Multiple Decorators</h2>
+
+<p>
+  You can stack decorators on a single target. The important thing to know is that
+  decorator <strong>factories</strong> (the outer calls) evaluate top to bottom, but
+  the returned <strong>decorator functions</strong> apply bottom to top. Think of it
+  like function composition: <code>f(g(x))</code>.
+</p>
+
+<pre><code class="language-typescript">
+function First() {
+  console.log("First factory evaluated");
+  return function (_target: Object, _key: string, descriptor: PropertyDescriptor) {
+    console.log("First decorator applied");
+    return descriptor;
+  };
+}
+
+function Second() {
+  console.log("Second factory evaluated");
+  return function (_target: Object, _key: string, descriptor: PropertyDescriptor) {
+    console.log("Second decorator applied");
+    return descriptor;
+  };
+}
+
+class Demo {
+  @First()
+  @Second()
+  doSomething() {}
+}
+
+// Output:
+// First factory evaluated
+// Second factory evaluated
+// Second decorator applied
+// First decorator applied
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Evaluation vs. application order</div>
+    <p>
+      Factories evaluate top to bottom. Decorators apply bottom to top.
+      The decorator closest to the method runs first; the one farthest away runs last.
+      Keep this in mind when order matters, such as when one decorator depends on the
+      output of another.
+    </p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 6: EXCALIBUR CONTEXT
+     ═══════════════════════════════════════════════ -->
+<h2>Decorators in ExcaliburJS Game Code</h2>
+
+<p>
+  ExcaliburJS entities are plain TypeScript classes, so decorators slot in naturally.
+  Below is a practical pattern: a <code>@RegisterEntity</code> decorator that adds a
+  class to a game-wide registry at definition time, and a <code>@Clamp</code> property
+  decorator that keeps a health value inside a safe range.
+</p>
+
+<pre><code class="language-typescript">
+import { Actor, Color, Engine } from "excalibur";
+
+// ── Registry ────────────────────────────────────────────────────────────────
+const entityRegistry = new Map<string, typeof Actor>();
+
+function RegisterEntity(name: string) {
+  return function (constructor: typeof Actor) {
+    entityRegistry.set(name, constructor);
+    console.log(`Registered entity: ${name}`);
+  };
+}
+
+// ── Clamped property ─────────────────────────────────────────────────────────
+function Clamp(min: number, max: number) {
+  return function (target: Object, propertyKey: string) {
+    let value = 0;
+    Object.defineProperty(target, propertyKey, {
+      get() { return value; },
+      set(incoming: number) {
+        value = Math.min(max, Math.max(min, incoming));
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  };
+}
+
+// ── Method: log whenever the actor takes damage ──────────────────────────────
+function LogDamage(
+  _target: Object,
+  _key: string,
+  descriptor: PropertyDescriptor
+): PropertyDescriptor {
+  const original = descriptor.value as (amount: number) => void;
+  descriptor.value = function (amount: number) {
+    console.log(`${this.constructor.name} takes ${amount} damage`);
+    original.call(this, amount);
+  };
+  return descriptor;
+}
+
+// ── Entity definition ────────────────────────────────────────────────────────
+@RegisterEntity("Skeleton")
+class Skeleton extends Actor {
+  @Clamp(0, 100)
+  health!: number;
+
+  constructor() {
+    super({ color: Color.fromHex("#888"), width: 32, height: 48 });
+    this.health = 80;
+  }
+
+  @LogDamage
+  takeDamage(amount: number) {
+    this.health -= amount;
+    if (this.health === 0) {
+      this.kill();
+    }
+  }
+}
+
+// Later in your scene setup:
+// const SkeletonClass = entityRegistry.get("Skeleton")!;
+// const enemy = new SkeletonClass();
+// scene.add(enemy);
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Decorators shine in large entity hierarchies</div>
+    <p>
+      When you have many entity classes (bosses, projectiles, pickups, traps), a
+      shared decorator library means each class stays focused on its own behavior.
+      Cross-cutting concerns like logging, registration, and validation live in one
+      place and are added with a single line.
+    </p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The playground below sets up a minimal Excalibur scene. Try adding a
+  <code>@Clamp(0, 100)</code> property decorator to the <code>health</code> property
+  of the actor, then set health to <code>-10</code> or <code>999</code> and check
+  the console to see the clamp in action.
+</p>
+
+<excalibur-playground
+  label="Try It: Class Decorators"
+  height="500"
+>
+  <script type="text/plain" slot="code">
+import { Actor, Color, Engine, DisplayMode } from "excalibur";
+
+// Enable experimentalDecorators in your tsconfig to use this pattern.
+
+// A simple Clamp property decorator
+function Clamp(min: number, max: number) {
+  return function (target: Object, propertyKey: string) {
+    let _val = 0;
+    Object.defineProperty(target, propertyKey, {
+      get() { return _val; },
+      set(v: number) { _val = Math.min(max, Math.max(min, v)); },
+      enumerable: true,
+      configurable: true,
+    });
+  };
+}
+
+class Hero extends Actor {
+  @Clamp(0, 100)
+  health!: number;
+
+  constructor() {
+    super({ color: Color.fromHex("#4ade80"), width: 40, height: 40, x: 200, y: 150 });
+    this.health = 80;
+    console.log("Initial health:", this.health); // 80
+
+    this.health = 999;
+    console.log("After setting 999:", this.health); // 100
+
+    this.health = -5;
+    console.log("After setting -5:", this.health); // 0
+  }
+}
+
+const game = new Engine({ width: 400, height: 300, displayMode: DisplayMode.Fixed });
+const hero = new Hero();
+game.add(hero);
+game.start();
+  </script>
+</excalibur-playground>
+
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Readonly decorator</div>
+  <div class="exercise__body">
+    <p>
+      Create a property decorator called <code>@ReadonlyAfterInit</code> that allows a
+      property to be set exactly once. Any subsequent assignment should throw a
+      <code>TypeError</code> with a descriptive message.
+    </p>
+    <ol>
+      <li>
+        Write the decorator function with the correct signature:
+        <code>(target: Object, propertyKey: string) => void</code>.
+      </li>
+      <li>
+        Inside the decorator, use <code>Object.defineProperty</code> to set up a getter
+        and setter. Track whether the property has been assigned yet with a boolean flag.
+      </li>
+      <li>
+        Apply <code>@ReadonlyAfterInit</code> to a <code>id</code> property on a
+        <code>GameEntity</code> class. Confirm the first assignment works and the second
+        throws.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> <code>entity.id = "hero-1"</code> succeeds.
+      A second <code>entity.id = "hero-2"</code> throws
+      <code>TypeError: id is readonly after initialization</code>.
+    </p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Compose a full entity decorator pipeline</div>
+  <p>
+    Build three decorators: <code>@RegisterEntity(name)</code> (class),
+    <code>@Debounce(ms)</code> (method), and <code>@Positive</code> (property).
+    Apply all three to a <code>Turret</code> class that extends Excalibur's
+    <code>Actor</code>. The <code>@Debounce</code> decorator should prevent
+    <code>fire()</code> from being called more than once per interval. Verify
+    the execution order by adding <code>console.log</code> statements inside
+    each decorator and checking the output in the browser console.
+  </p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li><span>Decorators are functions applied to classes, methods, properties, or parameters at class definition time using the <code>@</code> syntax.</span></li>
+    <li><span>Enable decorators with <code>"experimentalDecorators": true</code> in <code>tsconfig.json</code>.</span></li>
+    <li><span>Class decorators receive the constructor; method decorators receive the prototype, key, and property descriptor; property decorators receive the prototype and key; parameter decorators receive the prototype, key, and parameter index.</span></li>
+    <li><span>Decorator factories (<code>@Tagged("enemy")</code>) are functions that return decorators, giving you a way to pass configuration into a decorator.</span></li>
+    <li><span>When stacking decorators, factories evaluate top to bottom but the decorator functions apply bottom to top.</span></li>
+    <li><span>In ExcaliburJS, decorators are a clean way to add registration, validation, and logging to entity classes without cluttering each class's own logic.</span></li>
+  </ul>
+</section>

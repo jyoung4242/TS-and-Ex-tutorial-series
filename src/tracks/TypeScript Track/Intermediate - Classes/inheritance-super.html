@@ -1,0 +1,491 @@
+<!--
+  class-inheritance-and-super.html
+  TypeScript Academy — Object-Oriented TypeScript Track
+  Module: Classes
+  Lesson: Class Inheritance and super()
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Extend a base class using the <code>extends</code> keyword and understand what is inherited</li>
+    <li>Call parent constructors and methods with <code>super()</code> correctly and in the right order</li>
+    <li>Override methods in a subclass while preserving parent behavior when needed</li>
+    <li>Annotate inherited properties with <code>protected</code> so subclasses can access them safely</li>
+    <li>Apply class inheritance to real Excalibur actor hierarchies like enemy types and projectile variants</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you're building a game with a dozen enemy types. Each one has health, a position, and a <code>takeDamage()</code> method.
+  Without inheritance you'd copy that logic into every class and fix the same bug twelve times. <strong>Class inheritance</strong> lets
+  you define that shared behavior once in a base class, then extend it for each specialized type.
+</p>
+
+<p>
+  TypeScript builds cleanly on JavaScript's class model and adds compile-time safety around the features that trip developers up most:
+  calling <code>super()</code> before touching <code>this</code>, narrowing access with <code>protected</code>, and type-checking
+  overridden method signatures. In this lesson you'll understand exactly how those pieces fit together.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>The <code>extends</code> Keyword</h2>
+
+<p>
+  A subclass inherits all public and protected members of its parent. Use the
+  <code>extends</code> keyword to declare the relationship.
+</p>
+
+<pre><code class="language-typescript">class Actor {
+  name: string;
+  x: number;
+  y: number;
+
+  constructor(name: string, x: number, y: number) {
+    this.name = name;
+    this.x = x;
+    this.y = y;
+  }
+
+  update(deltaMs: number): void {
+    // base update logic — runs every frame
+    console.log(`${this.name} updating...`);
+  }
+}
+
+class Enemy extends Actor {
+  health: number;
+
+  constructor(name: string, x: number, y: number, health: number) {
+    super(name, x, y); // must come before any reference to `this`
+    this.health = health;
+  }
+}
+
+const goblin = new Enemy("Goblin", 100, 200, 30);
+console.log(goblin.name);   // "Goblin"  — inherited from Actor
+console.log(goblin.health); // 30        — defined on Enemy
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      <code>Enemy</code> automatically gains <code>name</code>, <code>x</code>, <code>y</code>, and <code>update()</code> without
+      redeclaring them. Inheritance is additive: a subclass starts with everything the parent has, then layers on its own members.
+    </p>
+  </div>
+</div>
+
+<h2>Calling <code>super()</code> in the Constructor</h2>
+
+<p>
+  When a subclass defines its own constructor, the very first statement <em>must</em> be <code>super(...)</code>. This hands the parent
+  constructor the arguments it needs to initialize its own properties. TypeScript enforces this at compile time.
+</p>
+
+<pre><code class="language-typescript">class Slime extends Actor {
+  color: string;
+
+  constructor(x: number, y: number, color: string) {
+    // TypeScript error if you access `this` before this line
+    super("Slime", x, y);
+    this.color = color;
+  }
+}
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Accessing <code>this</code> before <code>super()</code> is a runtime error in JavaScript and a compile error in TypeScript.
+      TypeScript will flag it with:
+      <em>"'super' must be called before accessing 'this' in the constructor of a derived class."</em>
+      Always put <code>super()</code> first.
+    </p>
+  </div>
+</div>
+
+<h2>The <code>protected</code> Access Modifier</h2>
+
+<p>
+  By default, class members are <code>public</code>. A <code>private</code> member is invisible everywhere outside the declaring class,
+  including subclasses. That's often too strict for base classes that are <em>designed</em> to be extended. The <code>protected</code>
+  modifier is the middle ground: visible inside the class and all subclasses, but not to outside callers.
+</p>
+
+<pre><code class="language-typescript">class Actor {
+  name: string;
+  protected hp: number; // subclasses can read and write this
+
+  constructor(name: string, hp: number) {
+    this.name = name;
+    this.hp = hp;
+  }
+}
+
+class Boss extends Actor {
+  takeDamage(amount: number): void {
+    this.hp -= amount; // OK: hp is protected, Boss is a subclass
+    if (this.hp <= 0) {
+      console.log(`${this.name} has been defeated!`);
+    }
+  }
+}
+
+const boss = new Boss("Dragon", 500);
+boss.takeDamage(100); // fine
+// boss.hp -= 50;     // Error: 'hp' is protected
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Reach for <code>protected</code> when you are writing a base class that other developers (or your future self) will extend. It
+      communicates intent: "this member is an implementation detail, not a public API, but subclasses are expected to work with it."
+    </p>
+  </div>
+</div>
+
+<h2>Overriding Methods</h2>
+
+<p>
+  A subclass can replace a parent method with its own version. TypeScript requires the
+  <code>override</code> keyword (when <code>noImplicitOverride</code> is enabled) to make the intent explicit and catch typos that
+  would silently create a new method instead of replacing the parent's.
+</p>
+
+<pre><code class="language-typescript">class Actor {
+  name: string;
+
+  constructor(name: string) {
+    this.name = name;
+  }
+
+  update(deltaMs: number): void {
+    // base: do nothing by default
+  }
+}
+
+class Patrol extends Actor {
+  private direction: number = 1;
+
+  override update(deltaMs: number): void {
+    // custom patrol logic replaces the base update entirely
+    this.direction *= -1;
+    console.log(`${this.name} turns and walks the other way`);
+  }
+}
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      The overriding method's signature must be compatible with the parent's. You can widen return types and narrow parameter types,
+      but you cannot change the parameter count in a way that breaks callers who hold a reference typed as the base class.
+    </p>
+  </div>
+</div>
+
+<h2>Calling <code>super.method()</code> From an Override</h2>
+
+<p>
+  Overriding replaces the parent's logic entirely. When you still want the parent's behavior and want to add to it rather than replace
+  it, call <code>super.methodName()</code> from inside the override.
+</p>
+
+<pre><code class="language-typescript">class Actor {
+  name: string;
+
+  constructor(name: string) {
+    this.name = name;
+  }
+
+  update(deltaMs: number): void {
+    // base update: could handle timers, status effects, etc.
+    console.log(`[base] ${this.name} base update`);
+  }
+}
+
+class FlickeringEnemy extends Actor {
+  private flashTimer: number = 0;
+
+  override update(deltaMs: number): void {
+    super.update(deltaMs); // run parent logic first
+    this.flashTimer += deltaMs;
+    if (this.flashTimer > 500) {
+      console.log(`${this.name} flickers!`);
+      this.flashTimer = 0;
+    }
+  }
+}
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Calling <code>super.update()</code> first is the conventional pattern in game engines (including Excalibur) because it lets the
+      base class stabilize state before your subclass logic reads it. In UI frameworks the order is sometimes reversed for lifecycle
+      reasons, so always check the framework's docs.
+    </p>
+  </div>
+</div>
+
+<h2>Putting It Together: An Excalibur Enemy Hierarchy</h2>
+
+<p>
+  Here is a realistic hierarchy you would build in an Excalibur game. The base
+  <code>BaseEnemy</code> class handles health, damage, and death. Subclasses extend it to add specialized behavior without duplicating
+  any shared code.
+</p>
+
+<pre><code class="language-typescript">import { Actor, Engine, vec } from "excalibur";
+
+// Base class: shared behavior for all enemies
+class BaseEnemy extends Actor {
+  protected hp: number;
+  protected maxHp: number;
+
+  constructor(name: string, x: number, y: number, hp: number) {
+    super({ name, pos: vec(x, y) });
+    this.hp = hp;
+    this.maxHp = hp;
+  }
+
+  takeDamage(amount: number): void {
+    this.hp = Math.max(0, this.hp - amount);
+    console.log(`${this.name} has ${this.hp}/${this.maxHp} HP`);
+    if (this.hp === 0) {
+      this.onDeath();
+    }
+  }
+
+  protected onDeath(): void {
+    console.log(`${this.name} was defeated`);
+    this.kill();
+  }
+}
+
+// Subclass: a fast enemy that flees when low on health
+class ScoutEnemy extends BaseEnemy {
+  private speed: number;
+
+  constructor(x: number, y: number) {
+    super("Scout", x, y, 20);
+    this.speed = 200;
+  }
+
+  override onUpdate(engine: Engine, deltaMs: number): void {
+    if (this.hp < this.maxHp * 0.25) {
+      // flee upward when below 25% health
+      this.vel = vec(0, -this.speed);
+    }
+  }
+}
+
+// Subclass: a heavy enemy that explodes on death
+class TankEnemy extends BaseEnemy {
+  constructor(x: number, y: number) {
+    super("Tank", x, y, 100);
+  }
+
+  protected override onDeath(): void {
+    console.log(`${this.name} EXPLODES!`);
+    // spawn explosion actor here in a real game
+    super.onDeath(); // still call kill() via parent
+  }
+}
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      <code>onDeath()</code> is marked <code>protected</code> on <code>BaseEnemy</code> so subclasses can override it, but outside code
+      cannot call it directly. This is the pattern Excalibur itself uses for lifecycle hooks like <code>onInitialize</code> and
+      <code>onPreUpdate</code>.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The playground below defines a <code>BaseActor</code> and two subclasses. Experiment with overriding <code>onUpdate</code>, adjusting
+  <code>super()</code> calls, and adding new <code>protected</code> properties to see how inheritance plays out at runtime.
+</p>
+
+<excalibur-playground label="Try It: Class Inheritance and super()" height="520">
+  <script type="text/plain" slot="code">
+    import { Actor, Engine, Color, vec, DisplayMode } from "excalibur";
+
+    // Base class -- shared health and color flash on damage
+    class BaseEnemy extends Actor {
+      protected hp: number;
+
+      constructor(config: { x: number; y: number; hp: number; color: Color }) {
+        super({ pos: vec(config.x, config.y), width: 40, height: 40, color: config.color });
+        this.hp = config.hp;
+      }
+
+      takeDamage(amount: number): void {
+        this.hp -= amount;
+        if (this.hp <= 0) {
+          this.kill();
+        }
+      }
+    }
+
+    // Subclass A: drifts left and right
+    class PatrolEnemy extends BaseEnemy {
+      private dir = 1;
+
+      constructor(x: number, y: number) {
+        super({ x, y, hp: 50, color: Color.Red });
+      }
+
+      override onPreUpdate(engine: Engine, deltaMs: number): void {
+        this.vel = vec(80 * this.dir, 0);
+        if (this.pos.x > 500 || this.pos.x < 100) {
+          this.dir *= -1;
+        }
+      }
+    }
+
+    // Subclass B: drops straight down
+    class FallingEnemy extends BaseEnemy {
+      constructor(x: number, y: number) {
+        super({ x, y, hp: 30, color: Color.Blue });
+      }
+
+      override onPreUpdate(engine: Engine, deltaMs: number): void {
+        this.vel = vec(0, 60);
+        if (this.pos.y > 550) {
+          this.pos = vec(this.pos.x, -20);
+        }
+      }
+    }
+
+    const game = new Engine({ displayMode: DisplayMode.FitScreen });
+
+    game.add(new PatrolEnemy(300, 200));
+    game.add(new FallingEnemy(150, 50));
+    game.add(new FallingEnemy(350, 50));
+
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Projectile Hierarchy</div>
+  <div class="exercise__body">
+    <p>Create a small class hierarchy for projectiles in a shooter game. Use the steps below to guide you.</p>
+    <ol>
+      <li>
+        Define a <code>BaseProjectile</code> class that extends Excalibur's <code>Actor</code>. It should accept <code>x</code>,
+        <code>y</code>, and <code>damage</code> in its constructor and store <code>damage</code> as a <code>protected</code> property.
+      </li>
+      <li>
+        Add an <code>onCollision()</code> method to <code>BaseProjectile</code> that logs <code>"Hit for X damage"</code> and calls
+        <code>this.kill()</code>.
+      </li>
+      <li>
+        Create a <code>PiercingBullet</code> subclass that overrides <code>onCollision()</code> to double the logged damage (it hits
+        twice as hard) but does <em>not</em> call <code>this.kill()</code> because it keeps traveling.
+      </li>
+      <li>
+        Create an <code>ExplosiveBullet</code> subclass that calls <code>super.onCollision()</code> and then logs
+        <code>"Explosion triggers!"</code>.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> Each subclass behaves differently on collision while still relying on the base class for shared
+      properties and logic. TypeScript should not produce any errors.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Multi-level Inheritance Chain</div>
+  <p>
+    Extend your projectile hierarchy one level deeper. Create a
+    <code>GuidedExplosiveBullet</code> that extends <code>ExplosiveBullet</code>. Override <code>onPreUpdate</code> to steer the bullet
+    toward a fixed target position each frame using the Excalibur <code>Vector</code> API. On collision it should behave exactly like
+    <code>ExplosiveBullet</code> without duplicating any logic: rely entirely on <code>super</code> calls. Then add a
+    <code>protected</code> method called <code>onExplosionRadius()</code> to <code>ExplosiveBullet</code> and override it in
+    <code>GuidedExplosiveBullet</code> to log a wider blast radius. Think carefully about where each responsibility lives in the chain.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span>Use <code>extends</code> to create a subclass that inherits all public and protected members from its parent class.</span>
+    </li>
+    <li>
+      <span
+        ><code>super()</code> must be the first statement in a subclass constructor; it forwards arguments to the parent's constructor
+        and initializes inherited properties before <code>this</code> becomes available.</span
+      >
+    </li>
+    <li>
+      <span
+        >Mark base class members <code>protected</code> when subclasses need to access them directly, but outside callers should
+        not.</span
+      >
+    </li>
+    <li>
+      <span
+        >Use the <code>override</code> keyword to replace a parent method; TypeScript will error if the method does not exist on the
+        parent, catching silent typos.</span
+      >
+    </li>
+    <li>
+      <span
+        >Call <code>super.methodName()</code> inside an override to run the parent's logic alongside the subclass's additions rather
+        than replacing it entirely.</span
+      >
+    </li>
+    <li>
+      <span
+        >Excalibur's actor lifecycle hooks (<code>onInitialize</code>, <code>onPreUpdate</code>, <code>onPostUpdate</code>) are
+        designed to be overridden, making inheritance a natural fit for building typed enemy and projectile hierarchies.</span
+      >
+    </li>
+  </ul>
+</section>

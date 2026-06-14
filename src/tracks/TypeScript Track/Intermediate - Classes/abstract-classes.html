@@ -1,0 +1,398 @@
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Explain what an abstract class is and how it differs from a regular class and an interface</li>
+    <li>Declare abstract classes and abstract methods using the <code>abstract</code> keyword</li>
+    <li>Implement concrete subclasses that fulfill all abstract method contracts</li>
+    <li>Apply abstract classes to model shared game-object behavior in ExcaliburJS</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you are building a game with several enemy types: a Goblin, a Skeleton, and a Dragon. All of them need an
+  <code>update()</code> loop, a <code>takeDamage()</code> method, and a <code>die()</code> animation. The logic for
+  <code>takeDamage()</code> is the same for every enemy, but <code>die()</code> looks completely different per enemy type. How do you
+  share the common code without accidentally letting someone instantiate a bare "Enemy" with no visual or behavior?
+</p>
+
+<p>
+  Abstract classes solve this precisely. They let you write shared logic once in a base class, mark the parts that every subclass
+  <em>must</em> define as <code>abstract</code>, and then have TypeScript enforce that no one ever creates a raw instance of the base.
+  You get inheritance and enforcement in a single construct.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>Declaring an Abstract Class</h2>
+
+<p>
+  Prefix the <code>class</code> keyword with <code>abstract</code>. That is the only syntactic change. The class can now contain both
+  regular members with full implementations and <code>abstract</code> members that have no body.
+</p>
+
+<pre><code class="language-typescript">abstract class Enemy {
+  name: string;
+  health: number;
+
+  constructor(name: string, health: number) {
+    this.name = name;
+    this.health = health;
+  }
+
+  // Concrete method: shared logic lives here once.
+  takeDamage(amount: number): void {
+    this.health -= amount;
+    console.log(`${this.name} takes ${amount} damage. HP: ${this.health}`);
+    if (this.health <= 0) {
+      this.die();
+    }
+  }
+
+  // Abstract method: every subclass must provide its own version.
+  abstract die(): void;
+}
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      Abstract methods have no curly-brace body at all. They end with a semicolon after the signature. Adding a body is a TypeScript
+      compiler error.
+    </p>
+  </div>
+</div>
+
+<h3>Why You Cannot Instantiate an Abstract Class</h3>
+
+<p>
+  TypeScript will refuse to compile code that calls <code>new</code> on an abstract class. This is intentional: an abstract class is a
+  blueprint, not a finished product.
+</p>
+
+<pre><code class="language-typescript">// Error: Cannot create an instance of an abstract class.
+const e = new Enemy("Generic Enemy", 100);
+</code></pre>
+
+<p>This protects you from creating an object that has an unfulfilled <code>die()</code> contract. You must subclass first.</p>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      Abstract classes exist to be extended, never to be instantiated directly. TypeScript enforces this at compile time, not at
+      runtime.
+    </p>
+  </div>
+</div>
+
+<h2>Implementing a Concrete Subclass</h2>
+
+<p>
+  A subclass uses <code>extends</code> exactly as with any class. The only new requirement is that it must implement every
+  <code>abstract</code> method declared in the parent, or TypeScript will report an error listing every missing implementation.
+</p>
+
+<pre><code class="language-typescript">class Goblin extends Enemy {
+  constructor() {
+    super("Goblin", 30);
+  }
+
+  // Required: fulfills the abstract contract.
+  die(): void {
+    console.log(`${this.name} squeals and vanishes in a puff of green smoke.`);
+  }
+}
+
+class Dragon extends Enemy {
+  constructor() {
+    super("Dragon", 500);
+  }
+
+  die(): void {
+    console.log(`${this.name} lets out a final roar and crumbles to ash.`);
+  }
+}
+
+// Both are valid because all abstract methods are implemented.
+const goblin = new Goblin();
+const dragon = new Dragon();
+
+goblin.takeDamage(35); // Logs damage, then calls Goblin.die()
+dragon.takeDamage(10); // Only logs damage; Dragon survives
+</code></pre>
+
+<p>
+  Notice that <code>takeDamage()</code> is inherited as-is. The subclasses do not repeat that logic. Only the parts that genuinely
+  differ per type live in the subclass.
+</p>
+
+<h2>Abstract Properties</h2>
+
+<p>
+  You can mark properties as <code>abstract</code> too, not just methods. This forces subclasses to declare the property and give it a
+  concrete type or value.
+</p>
+
+<pre><code class="language-typescript">abstract class Enemy {
+  abstract readonly spriteKey: string; // Subclass must declare this.
+  abstract name: string;
+  abstract health: number;
+
+  takeDamage(amount: number): void {
+    this.health -= amount;
+  }
+
+  abstract die(): void;
+}
+
+class Skeleton extends Enemy {
+  readonly spriteKey = "skeleton-sprite";
+  name = "Skeleton";
+  health = 50;
+
+  die(): void {
+    console.log(`${this.name} collapses into a pile of bones.`);
+  }
+}
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Abstract properties work well for values that are constant per subclass but differ between types, such as a sprite key, a display
+      name, or a point value. You declare the contract once and each subclass fills in its own literal.
+    </p>
+  </div>
+</div>
+
+<h2>What About Interfaces?</h2>
+
+<p>
+  You may already be wondering how abstract classes relate to interfaces. Both can declare method signatures that a type must
+  implement, so the choice between them is a real design decision worth thinking about carefully.
+</p>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Coming Up Next</div>
+    <p>
+      The next module covers abstract classes vs interfaces in depth: what each construct can and cannot express, where they overlap,
+      and a set of practical rules for choosing between them. Finish this lesson first to get comfortable with what abstract classes do
+      on their own.
+    </p>
+  </div>
+</div>
+
+<h2>Using Abstract Classes as Type Annotations</h2>
+
+<p>
+  Even though you cannot instantiate an abstract class, you can use it as a type. This is powerful: you can write functions that accept
+  any concrete subclass and call the shared methods without knowing which subclass it is.
+</p>
+
+<pre><code class="language-typescript">function simulateCombat(enemy: Enemy, incomingDamage: number): void {
+  console.log(`Attacking ${enemy.name}...`);
+  enemy.takeDamage(incomingDamage);
+}
+
+// Both calls work because Goblin and Dragon both extend Enemy.
+simulateCombat(new Goblin(), 35);
+simulateCombat(new Dragon(), 10);
+</code></pre>
+
+<p>
+  The parameter type <code>Enemy</code> tells TypeScript "any object whose class extends Enemy." This is structural polymorphism backed
+  by the abstract class contract.
+</p>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      This pattern is especially useful in game loops. A scene can hold an
+      <code>Enemy[]</code> array and call <code>enemy.update()</code> on every entry without caring which concrete type each one is.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The code below defines an abstract <code>GameActor</code> class that extends Excalibur's <code>Actor</code>. Two concrete subclasses,
+  <code>PlayerShip</code> and <code>EnemyDrone</code>, each implement the required <code>onHit()</code> method differently. Watch how
+  the shared <code>applyDamage()</code> logic in the base class calls each subclass's <code>onHit()</code> automatically.
+</p>
+
+<excalibur-playground label="Try It: Abstract Classes" height="500">
+  <script type="text/plain" slot="code">
+    import {
+      Engine,
+      Actor,
+      Color,
+      vec,
+      DisplayMode,
+    } from "excalibur";
+
+    // Abstract base: shared logic + enforced contract.
+    abstract class GameActor extends Actor {
+      health: number;
+
+      constructor(config: { x: number; y: number; color: Color; health: number }) {
+        super({ x: config.x, y: config.y, width: 40, height: 40, color: config.color });
+        this.health = config.health;
+      }
+
+      applyDamage(amount: number): void {
+        this.health -= amount;
+        this.onHit(amount);
+        if (this.health <= 0) {
+          this.kill();
+        }
+      }
+
+      // Subclasses decide what "being hit" looks like.
+      abstract onHit(amount: number): void;
+    }
+
+    class PlayerShip extends GameActor {
+      onHit(amount: number): void {
+        // Flash red briefly to show damage.
+        this.graphics.opacity = 0.3;
+        setTimeout(() => (this.graphics.opacity = 1), 200);
+        console.log(`Player takes ${amount} damage. HP: ${this.health}`);
+      }
+    }
+
+    class EnemyDrone extends GameActor {
+      onHit(amount: number): void {
+        // Spin to signal a hit.
+        this.rotation += Math.PI / 4;
+        console.log(`Drone takes ${amount} damage. HP: ${this.health}`);
+      }
+    }
+
+    const game = new Engine({ displayMode: DisplayMode.FitScreen });
+
+    const player = new PlayerShip({ x: 200, y: 300, color: Color.Blue, health: 100 });
+    const drone = new EnemyDrone({ x: 400, y: 200, color: Color.Red, health: 40 });
+
+    game.add(player);
+    game.add(drone);
+
+    game.start().then(() => {
+      // Simulate hits after a short delay so the scene renders first.
+      setTimeout(() => {
+        player.applyDamage(25);
+        drone.applyDamage(45); // Kills the drone.
+      }, 1000);
+    });
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Weapon Hierarchy</div>
+  <div class="exercise__body">
+    <p>
+      Create an abstract class <code>Weapon</code> that captures what all weapons share, then build two concrete subclasses with their
+      own attack behavior.
+    </p>
+    <ol>
+      <li>
+        Declare an abstract class <code>Weapon</code> with a concrete property <code>name: string</code>, a concrete method
+        <code>describe(): string</code> that returns a string like <code>"Weapon: [name]"</code>, and an abstract method
+        <code>attack(): string</code>.
+      </li>
+      <li>Create a <code>Sword</code> subclass whose <code>attack()</code> returns <code>"Sword slash for 20 damage!"</code>.</li>
+      <li>Create a <code>MagicWand</code> subclass whose <code>attack()</code> returns <code>"Magic bolt for 35 damage!"</code>.</li>
+      <li>
+        Write a function <code>useWeapon(w: Weapon): void</code> that logs both <code>w.describe()</code> and <code>w.attack()</code>.
+      </li>
+      <li>Call <code>useWeapon</code> with an instance of each subclass and verify the output.</li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript should compile without errors, and each weapon logs its own name and its unique
+      attack string. Attempting <code>new Weapon(...)</code> directly should produce a compiler error.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Template Method Pattern</div>
+  <p>
+    The <em>template method</em> pattern uses an abstract class to define the skeleton of an algorithm in a concrete base method, then
+    delegates specific steps to abstract methods that subclasses fill in.
+  </p>
+  <p>
+    Implement an abstract class <code>LevelLoader</code> with a concrete method <code>load(): void</code> that calls, in order:
+    <code>spawnTerrain()</code>, <code>spawnEnemies()</code>, and <code>spawnPickups()</code>. Declare all three as abstract. Create
+    two concrete subclasses: <code>ForestLevel</code> and <code>DungeonLevel</code>, each implementing the three methods with distinct
+    console output. Then call <code>loader.load()</code> on an instance of each and observe that the orchestration order is always
+    enforced by the base class, not the subclass.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span
+        >The <code>abstract</code> keyword on a class prevents direct instantiation and signals that the class is a shared blueprint,
+        not a finished object.</span
+      >
+    </li>
+    <li>
+      <span
+        >Abstract methods declare a required signature with no body; every concrete subclass must implement them or TypeScript will
+        report an error.</span
+      >
+    </li>
+    <li>
+      <span
+        >Abstract classes can hold real, reusable implementation alongside abstract contracts, which is the key advantage over
+        interfaces.</span
+      >
+    </li>
+    <li>
+      <span
+        >You can use an abstract class as a type annotation to write functions that accept any valid subclass, enabling polymorphism
+        across a whole family of types.</span
+      >
+    </li>
+    <li>
+      <span
+        >In ExcaliburJS, abstract classes are a natural fit for actor hierarchies: write the game-loop plumbing once and let each
+        concrete actor type define its own visual and behavioral responses.</span
+      >
+    </li>
+  </ul>
+</section>

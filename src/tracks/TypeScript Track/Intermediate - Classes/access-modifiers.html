@@ -1,0 +1,490 @@
+<!--
+  access-modifiers.html
+  =====================
+  Lesson: Access Modifiers in TypeScript Classes
+  Track:   Object-Oriented TypeScript
+  Module:  Classes
+  Slug:    access-modifiers
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Explain what <code>public</code>, <code>private</code>, and <code>protected</code> do and how they differ</li>
+    <li>Use access modifiers to hide internal state and enforce safe APIs on a class</li>
+    <li>Apply the <code>readonly</code> modifier to prevent mutation after construction</li>
+    <li>Use TypeScript's constructor parameter shorthand to declare and assign class fields in one line</li>
+    <li>Recognize the difference between TypeScript's compile-time enforcement and JavaScript's runtime behavior</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you are designing an enemy actor for a game. The enemy has a health value, an internal damage multiplier, and a public method
+  to take damage. If any other system in your game can directly set <code>enemy.health = 9999</code> or
+  <code>enemy.damageMultiplier = 0</code>, bugs become nearly impossible to track down. You intended those fields to be internal
+  details, but nothing stopped outside code from reaching in and changing them.
+</p>
+
+<p>
+  Access modifiers are TypeScript's solution. They let you mark which parts of a class are part of its public contract and which are
+  private implementation details. The result is a clear boundary: other systems call the methods you expose, and the internals stay
+  yours to control.
+</p>
+
+<p>
+  In this lesson you will learn the three core modifiers (<code>public</code>,
+  <code>private</code>, <code>protected</code>), the <code>readonly</code> modifier, and a convenient shorthand that keeps constructors
+  tidy. Every example is grounded in patterns you will actually use with ExcaliburJS actors and components.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 1: public
+     ═══════════════════════════════════════════════ -->
+<h2>The <code>public</code> Modifier</h2>
+
+<p>
+  <code>public</code> is the default for every class member. Marking something <code>public</code> means any code, inside or outside
+  the class, can read or write it. You rarely need to write the keyword explicitly, but doing so is good documentation when you are
+  being deliberate about your API.
+</p>
+
+<pre><code class="language-typescript">
+class PlayerActor {
+  public name: string;       // explicitly public
+  score: number;             // also public -- the keyword is optional
+
+  constructor(name: string) {
+    this.name = name;
+    this.score = 0;
+  }
+
+  public addScore(points: number): void {
+    this.score += points;
+  }
+}
+
+const player = new PlayerActor("Ada");
+player.name = "Ada Lovelace"; // OK -- public
+player.addScore(100);         // OK -- public method
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Default visibility</div>
+    <p>
+      TypeScript class members are <code>public</code> when no modifier is specified. Many style guides omit the keyword on public
+      members to reduce noise, and add it only as documentation on methods that form a deliberate public API.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2: private
+     ═══════════════════════════════════════════════ -->
+<h2>The <code>private</code> Modifier</h2>
+
+<p>
+  <code>private</code> restricts access to the class body itself. No subclass, no external caller, nothing outside the curly braces of
+  the class definition can read or write a <code>private</code> member. TypeScript will raise a type error at compile time if you try.
+</p>
+
+<pre><code class="language-typescript">
+class EnemyActor {
+  public label: string;
+  private health: number;
+  private damageMultiplier: number;
+
+  constructor(label: string, health: number) {
+    this.label = label;
+    this.health = health;
+    this.damageMultiplier = 1.0;
+  }
+
+  // The only sanctioned way to reduce health
+  public takeDamage(amount: number): void {
+    const actual = amount * this.damageMultiplier;
+    this.health = Math.max(0, this.health - actual);
+  }
+
+  public isDefeated(): boolean {
+    return this.health <= 0;
+  }
+}
+
+const goblin = new EnemyActor("Goblin", 80);
+goblin.takeDamage(20);        // OK -- public method
+goblin.health = 9999;         // Error: Property 'health' is private
+goblin.damageMultiplier = 0;  // Error: Property 'damageMultiplier' is private
+</code></pre>
+
+<p>
+  Now <code>health</code> can only change through <code>takeDamage</code>. You control every path of mutation, which makes the class
+  far easier to reason about and debug.
+</p>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Compile-time only</div>
+    <p>
+      TypeScript's <code>private</code> keyword is erased when compiled to JavaScript. At runtime, the property still exists on the
+      object and is technically accessible. If you need genuine runtime privacy, use the ECMAScript <code>#field</code>
+      syntax (<code>#health</code>), which is enforced by the JavaScript engine itself. For most TypeScript projects, the compile-time
+      check is sufficient.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3: protected
+     ═══════════════════════════════════════════════ -->
+<h2>The <code>protected</code> Modifier</h2>
+
+<p>
+  <code>protected</code> sits between <code>private</code> and <code>public</code>. A protected member is inaccessible to outside code,
+  but subclasses can read and write it. This is useful when you have a base class that encapsulates shared logic and subclasses that
+  legitimately need to extend that behavior.
+</p>
+
+<pre><code class="language-typescript">
+class BaseActor {
+  public label: string;
+  protected health: number;   // subclasses can access this
+
+  constructor(label: string, health: number) {
+    this.label = label;
+    this.health = health;
+  }
+
+  public takeDamage(amount: number): void {
+    this.health = Math.max(0, this.health - amount);
+  }
+
+  public isDefeated(): boolean {
+    return this.health <= 0;
+  }
+}
+
+class BossActor extends BaseActor {
+  private phase: number = 1;
+
+  // A boss can react to its own health state
+  public takeDamage(amount: number): void {
+    super.takeDamage(amount);
+
+    // OK -- BossActor can read this.health because it is protected
+    if (this.health < 50 && this.phase === 1) {
+      this.phase = 2;
+      console.log(`${this.label} enters phase 2!`);
+    }
+  }
+}
+
+const boss = new BossActor("Dragon", 100);
+boss.takeDamage(60);   // logs "Dragon enters phase 2!"
+boss.health;           // Error: Property 'health' is protected
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">When to choose protected vs private</div>
+    <p>
+      Start with <code>private</code>. Upgrade to <code>protected</code> only when you are deliberately designing a base class that
+      expects subclasses to build on it. Opening up a field to subclasses is a conscious architectural decision, not a default.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 4: readonly
+     ═══════════════════════════════════════════════ -->
+<h2>The <code>readonly</code> Modifier</h2>
+
+<p>
+  <code>readonly</code> allows a field to be set once, during construction, and then prevents any further mutation. It can be combined
+  with any visibility modifier. This is ideal for fields that represent permanent identity, like an actor's unique ID or its scene
+  assignment.
+</p>
+
+<pre><code class="language-typescript">
+class ActorComponent {
+  public readonly id: string;
+  private readonly ownerId: string;
+
+  constructor(id: string, ownerId: string) {
+    this.id = id;
+    this.ownerId = ownerId;
+  }
+
+  public describe(): string {
+    return `Component ${this.id} owned by ${this.ownerId}`;
+  }
+}
+
+const comp = new ActorComponent("health-bar", "player-1");
+console.log(comp.id);       // "health-bar" -- OK, reading is fine
+comp.id = "renamed";        // Error: Cannot assign to 'id' because it is a read-only property
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">readonly is not const</div>
+    <p>
+      <code>const</code> applies to variable bindings. <code>readonly</code> applies to class properties. A <code>readonly</code> array
+      field still lets you call <code>.push()</code> on the array itself, because the binding has not changed. To prevent mutation of
+      an array's contents, combine <code>readonly</code> with <code>ReadonlyArray&lt;T&gt;</code>.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 5: Constructor parameter shorthand
+     ═══════════════════════════════════════════════ -->
+<h2>Constructor Parameter Shorthand</h2>
+
+<p>
+  TypeScript lets you declare and assign class fields directly in the constructor parameter list. Add an access modifier (or
+  <code>readonly</code>) in front of the parameter name and TypeScript automatically creates the field and assigns the value. This
+  eliminates a lot of repetitive boilerplate.
+</p>
+
+<pre><code class="language-typescript">
+// Without shorthand -- four separate steps
+class ActorLong {
+  public label: string;
+  private health: number;
+  protected speed: number;
+  public readonly id: string;
+
+  constructor(label: string, health: number, speed: number, id: string) {
+    this.label = label;
+    this.health = health;
+    this.speed = speed;
+    this.id = id;
+  }
+}
+
+// With shorthand -- same result, far less code
+class ActorShort {
+  constructor(
+    public label: string,
+    private health: number,
+    protected speed: number,
+    public readonly id: string,
+  ) {}
+
+  public takeDamage(amount: number): void {
+    this.health = Math.max(0, this.health - amount);
+  }
+}
+</code></pre>
+
+<p>
+  Both classes are identical in the compiled output. The shorthand is the standard pattern in TypeScript codebases because it keeps
+  constructors concise and keeps the field declaration and its initialization in one place.
+</p>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Mixing shorthand and manual fields</div>
+    <p>
+      You can mix shorthand parameters with fields that need more complex initialization. Use shorthand for straightforward assignments
+      and write a manual assignment inside the constructor body when you need to compute or transform the value before storing it.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The snippet below defines a small actor hierarchy using the full range of access modifiers and the constructor shorthand. Read
+  through it, then try the exercises at the bottom of the editor: make the boss transition to a phase, add a
+  <code>readonly</code> field, or extend <code>BaseEnemy</code> with a new subclass.
+</p>
+
+<excalibur-playground label="Access Modifiers: Enemy Actor Hierarchy" height="560">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    // ---- Base class: shared fields and behaviour ----
+    class BaseEnemy extends ex.Actor {
+      // Constructor shorthand: all fields declared and assigned in one place
+      constructor(
+        public readonly label: string,
+        protected health: number,
+        private readonly pointValue: number,
+        config: ex.ActorArgs,
+      ) {
+        super(config);
+      }
+
+      public takeDamage(amount: number): void {
+        this.health = Math.max(0, this.health - amount);
+        console.log(`${this.label} health: ${this.health}`);
+      }
+
+      public isDefeated(): boolean {
+        return this.health <= 0;
+      }
+
+      // pointValue is private -- subclasses must use this method to read it
+      public getPointValue(): number {
+        return this.pointValue;
+      }
+    }
+
+    // ---- Subclass: can read protected health, cannot read private pointValue ----
+    class BossEnemy extends BaseEnemy {
+      private phase: number = 1;
+
+      constructor(config: ex.ActorArgs) {
+        // "Dragon" label, 200 health, 500 points
+        super("Dragon", 200, 500, config);
+      }
+
+      public takeDamage(amount: number): void {
+        super.takeDamage(amount);
+        // OK -- health is protected, accessible in subclass
+        if (this.health < 100 && this.phase === 1) {
+          this.phase = 2;
+          console.log(`${this.label} enters phase 2!`);
+        }
+      }
+
+      onInitialize(engine: ex.Engine): void {
+        this.graphics.use(
+          new ex.Circle({ radius: 30, color: ex.Color.Red }),
+        );
+      }
+    }
+
+    // ---- Scene wiring ----
+    const game = new ex.Engine({ width: 600, height: 400 });
+    const scene = new ex.Scene();
+
+    const boss = new BossEnemy({ x: 300, y: 200 });
+
+    // boss.health is protected  -- this line would be a compile error:
+    // boss.health = 9999;
+
+    boss.takeDamage(120);   // triggers phase 2
+    console.log("Points:", boss.getPointValue()); // 500 via public method
+
+    scene.add(boss);
+    game.addScene("main", scene);
+    game.goToScene("main");
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a HealthComponent with Access Modifiers</div>
+  <div class="exercise__body">
+    <p>
+      Create a <code>HealthComponent</code> class that manages health for any actor. Apply the correct access modifier to each field
+      and method based on the requirements below.
+    </p>
+    <ol>
+      <li>Declare a <code>readonly</code> field <code>maxHealth</code> that is set once in the constructor and never changes.</li>
+      <li>Declare a <code>private</code> field <code>currentHealth</code> that starts equal to <code>maxHealth</code>.</li>
+      <li>
+        Add a <code>public</code> method <code>takeDamage(amount: number): void</code> that reduces <code>currentHealth</code> by
+        <code>amount</code>, clamped to a minimum of <code>0</code>.
+      </li>
+      <li>
+        Add a <code>public</code> method <code>heal(amount: number): void</code> that increases <code>currentHealth</code>, clamped to
+        a maximum of <code>maxHealth</code>.
+      </li>
+      <li>
+        Add a <code>public</code> getter <code>current</code> that returns the current health value without exposing the private field
+        directly.
+      </li>
+      <li>Use constructor parameter shorthand for <code>maxHealth</code>.</li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript should allow <code>comp.takeDamage(30)</code> and <code>comp.current</code>, but
+      refuse <code>comp.currentHealth</code> and <code>comp.maxHealth = 200</code> with type errors.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Shielded Enemy with Protected Absorption</div>
+  <p>
+    Create a <code>ShieldedEnemy</code> class that extends <code>BaseEnemy</code> from the playground above. Add a
+    <code>protected</code> field <code>shieldAbsorption</code> (a value between 0 and 1 representing what fraction of incoming damage
+    the shield blocks). Override <code>takeDamage</code> so that damage is reduced by the shield before reaching the base class method.
+    Then create a <code>SuperShieldedEnemy</code> that extends <code>ShieldedEnemy</code> and modifies
+    <code>shieldAbsorption</code> dynamically after each hit, decreasing it by 0.1 until it reaches 0. Verify that outside code still
+    cannot read <code>health</code> or <code>shieldAbsorption</code>
+    directly.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span
+        ><code>public</code> is the default: any code can read or write the member. Use it deliberately to define what your class
+        intentionally exposes.</span
+      >
+    </li>
+    <li>
+      <span
+        ><code>private</code> restricts access to the class body only. Subclasses cannot access private members, which keeps
+        implementation details truly internal.</span
+      >
+    </li>
+    <li>
+      <span
+        ><code>protected</code> extends access to subclasses while still blocking outside callers. Use it when designing a base class
+        meant to be extended.</span
+      >
+    </li>
+    <li>
+      <span
+        ><code>readonly</code> allows assignment only in the constructor. Combine it with any visibility modifier to model fields that
+        represent permanent identity.</span
+      >
+    </li>
+    <li>
+      <span
+        >Constructor parameter shorthand (placing a modifier before a constructor parameter) declares and assigns the field
+        automatically, reducing boilerplate significantly.</span
+      >
+    </li>
+    <li>
+      <span
+        >TypeScript access modifiers are compile-time only. Use ECMAScript private fields (<code>#field</code>) when you need runtime
+        enforcement in the JavaScript output.</span
+      >
+    </li>
+  </ul>
+</section>

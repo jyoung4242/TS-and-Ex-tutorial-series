@@ -1,0 +1,387 @@
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Understand what <code>static</code> members are and how they differ from instance members</li>
+    <li>Declare and access static properties and methods with correct TypeScript type annotations</li>
+    <li>Recognize when shared state or shared behavior belongs on the class itself rather than on each instance</li>
+    <li>Apply static members in an ExcaliburJS context to manage game-wide registries and counters</li>
+    <li>Avoid common pitfalls when accessing <code>this</code> inside static methods</li>
+  </ul>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Every enemy you spawn in a game is its own object: its own position, its own health, its own state. But some things belong to
+  <em>all enemies at once</em>. How many are currently alive? What is the maximum number allowed on screen? That kind of information
+  does not live on any single instance. It lives on the class itself, and that is exactly what <code>static</code> is for.
+</p>
+
+<p>
+  In TypeScript, the <code>static</code> keyword lets you attach properties and methods directly to the class rather than to objects
+  created from it. You have already worked with instance members, which exist on each new object. Static members exist once, on the
+  class, and are shared by everyone who references it.
+</p>
+
+<p>
+  This distinction sounds subtle but has a big practical impact. Understanding it unlocks patterns like shared counters, factory
+  helpers, global registries, and configuration constants, all of which appear constantly in game development.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>Instance Members vs. Static Members</h2>
+
+<p>
+  When you write a class property or method without <code>static</code>, every object you create gets its own copy. Change the value on
+  one object, and nothing happens to any other object.
+</p>
+
+<pre><code class="language-typescript">
+class Enemy {
+  health: number;
+
+  constructor(health: number) {
+    this.health = health;
+  }
+
+  takeDamage(amount: number): void {
+    this.health -= amount;
+  }
+}
+
+const goblin = new Enemy(30);
+const orc    = new Enemy(80);
+
+goblin.takeDamage(10);
+
+console.log(goblin.health); // 20
+console.log(orc.health);    // 80 — completely independent
+</code></pre>
+
+<p>Now add a static property to track how many enemies have ever been created:</p>
+
+<pre><code class="language-typescript">
+class Enemy {
+  static count: number = 0;   // lives on the class, not on each object
+  health: number;
+
+  constructor(health: number) {
+    this.health = health;
+    Enemy.count++;            // increment via the class name, not `this`
+  }
+}
+
+const goblin = new Enemy(30);
+const orc    = new Enemy(80);
+
+console.log(Enemy.count); // 2
+// goblin.count  — TypeScript error: Property 'count' does not exist on type 'Enemy'
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      You access a static member through the <strong>class name</strong> (<code>Enemy.count</code>), not through an instance
+      (<code>goblin.count</code>). TypeScript enforces this at compile time, so mistakes are caught before you run the code.
+    </p>
+  </div>
+</div>
+
+<h2>Static Methods</h2>
+
+<p>
+  Methods can be static too. A static method is a function that belongs to the class itself. It cannot access instance properties via
+  <code>this</code> because it is not called on an instance.
+</p>
+
+<pre><code class="language-typescript">
+class Enemy {
+  static count: number = 0;
+  static maxAllowed: number = 10;
+
+  health: number;
+  name: string;
+
+  constructor(name: string, health: number) {
+    this.name   = name;
+    this.health = health;
+    Enemy.count++;
+  }
+
+  // Static factory method: creates an enemy only if room exists
+  static createIfAllowed(name: string, health: number): Enemy | null {
+    if (Enemy.count >= Enemy.maxAllowed) {
+      console.warn("Enemy cap reached!");
+      return null;
+    }
+    return new Enemy(name, health);
+  }
+
+  // Static utility: resets the counter (e.g., on level change)
+  static reset(): void {
+    Enemy.count = 0;
+  }
+}
+
+const goblin = Enemy.createIfAllowed("Goblin", 30);
+console.log(Enemy.count); // 1
+
+Enemy.reset();
+console.log(Enemy.count); // 0
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Inside a static method, <code>this</code> refers to the class itself, not to any instance. If you try to read
+      <code>this.health</code> inside a static method, TypeScript will give you a type error. Use the class name directly:
+      <code>Enemy.count</code>.
+    </p>
+  </div>
+</div>
+
+<h2>Static vs. Instance: Choosing the Right Tool</h2>
+
+<p>Use this quick mental test:</p>
+
+<ul>
+  <li><strong>Does each object need its own copy of this value?</strong> Instance member.</li>
+  <li><strong>Is this value shared across all objects, or does it describe the class itself?</strong> Static member.</li>
+</ul>
+
+<pre><code class="language-typescript">
+class Bullet {
+  // Each bullet has its own position — instance property
+  x: number;
+  y: number;
+
+  // All bullets share the same speed cap — static constant
+  static readonly MAX_SPEED: number = 800;
+
+  constructor(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+  }
+}
+
+console.log(Bullet.MAX_SPEED); // 800
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Pair <code>static</code> with <code>readonly</code> for constants. TypeScript will then prevent any code from accidentally
+      reassigning the value after it is set.
+    </p>
+  </div>
+</div>
+
+<h2>Static Members and Inheritance</h2>
+
+<p>
+  Subclasses inherit static members from their parent class, but each subclass maintains its own copy of any static property it
+  redeclares.
+</p>
+
+<pre><code class="language-typescript">
+class Actor {
+  static category: string = "generic";
+}
+
+class Player extends Actor {
+  static category: string = "player";  // shadows the parent's static
+}
+
+class Enemy extends Actor {
+  // does NOT redeclare category, so it inherits from Actor
+}
+
+console.log(Actor.category);  // "generic"
+console.log(Player.category); // "player"
+console.log(Enemy.category);  // "generic"  (inherited)
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      Inherited statics are accessed through either the parent or the child class name. Redeclaring a static on the subclass creates a
+      separate property specific to that subclass, leaving the parent's value unchanged.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The example below uses static members to manage a simple enemy registry inside an Excalibur scene. A <code>static count</code> on
+  <code>EnemyActor</code> tracks how many enemies are alive. Watch how the count updates as actors are added to the scene.
+</p>
+
+<excalibur-playground label="Try It: Static Enemy Registry" height="500">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    class EnemyActor extends ex.Actor {
+      // Shared across every EnemyActor instance
+      static count: number = 0;
+      static readonly MAX_ENEMIES: number = 5;
+
+      label: string;
+
+      constructor(label: string, x: number, y: number) {
+        super({
+          x,
+          y,
+          width:  40,
+          height: 40,
+          color:  ex.Color.Red,
+        });
+        this.label = label;
+        EnemyActor.count++;
+      }
+
+      // Factory: only creates a new enemy if the cap allows it
+      static spawn(scene: ex.Scene, label: string, x: number, y: number): EnemyActor | null {
+        if (EnemyActor.count >= EnemyActor.MAX_ENEMIES) {
+          console.warn(`Cannot spawn "${label}": enemy cap of ${EnemyActor.MAX_ENEMIES} reached.`);
+          return null;
+        }
+        const enemy = new EnemyActor(label, x, y);
+        scene.add(enemy);
+        return enemy;
+      }
+
+      onInitialize(): void {
+        console.log(`${this.label} initialized. Total enemies: ${EnemyActor.count}`);
+      }
+
+      onKill(): void {
+        EnemyActor.count--;
+        console.log(`${this.label} removed. Total enemies: ${EnemyActor.count}`);
+      }
+    }
+
+    // -- Scene setup --
+    const game  = new ex.Engine({ width: 600, height: 400 });
+    const scene = new ex.Scene();
+
+    for (let i = 0; i < 7; i++) {
+      EnemyActor.spawn(scene, `Enemy ${i + 1}`, 80 + i * 70, 200);
+    }
+
+    // After 2 seconds, kill one enemy to see the count decrease
+    setTimeout(() => {
+      const first = scene.actors.find(a => a instanceof EnemyActor) as EnemyActor | undefined;
+      first?.kill();
+    }, 2000);
+
+    game.addScene("main", scene);
+    game.goToScene("main");
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Bullet Pool Counter</div>
+  <div class="exercise__body">
+    <p>Create a <code>Bullet</code> class that uses static members to enforce a cap on how many bullets can exist at once.</p>
+    <ol>
+      <li>Add a <code>static active: number = 0</code> property that starts at zero.</li>
+      <li>Add a <code>static readonly MAX_BULLETS: number = 20</code> constant.</li>
+      <li>
+        In the constructor, increment <code>Bullet.active</code>. If the new value would exceed <code>MAX_BULLETS</code>, throw an
+        error instead of creating the bullet.
+      </li>
+      <li>Add a <code>destroy(): void</code> instance method that decrements <code>Bullet.active</code>.</li>
+      <li>
+        Write a static method <code>Bullet.status(): string</code> that returns a formatted string like <code>"Bullets: 3 / 20"</code>.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> Spawning 21 bullets should throw before the 21st is created. Calling
+      <code>Bullet.status()</code> after destroying two bullets should reflect the updated count.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Static Registry with Lookup</div>
+  <p>
+    Extend your <code>Enemy</code> class with a static registry that maps string IDs to instances. Add a static
+    <code>register(enemy: Enemy): void</code> method that stores each enemy by a unique <code>id</code> property, and a static
+    <code>find(id: string): Enemy | undefined</code> method that retrieves one by ID. Make sure the registry is typed correctly using
+    TypeScript's <code>Record&lt;string, Enemy&gt;</code> utility type. Then verify that removing an enemy from the scene also removes
+    it from the registry.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span
+        >The <code>static</code> keyword places a property or method on the class itself, not on any instance, so it is shared across
+        all uses of that class.</span
+      >
+    </li>
+    <li>
+      <span
+        >Static members are accessed via the class name (<code>Enemy.count</code>), never via <code>this</code> or an instance
+        variable.</span
+      >
+    </li>
+    <li>
+      <span
+        >Use static properties for shared state such as counters, caps, and configuration constants; use instance properties for data
+        that belongs to individual objects.</span
+      >
+    </li>
+    <li>
+      <span
+        >Static methods cannot read instance properties directly; they operate only on other static members or on arguments passed
+        in.</span
+      >
+    </li>
+    <li>
+      <span
+        >Combining <code>static</code> with <code>readonly</code> creates a compile-time constant that TypeScript will prevent from
+        being overwritten.</span
+      >
+    </li>
+    <li>
+      <span
+        >Subclasses inherit static members from their parent but can shadow them by redeclaring the static with the same name.</span
+      >
+    </li>
+  </ul>
+</section>
