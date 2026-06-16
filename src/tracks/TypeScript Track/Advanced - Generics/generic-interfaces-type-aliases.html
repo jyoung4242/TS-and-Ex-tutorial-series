@@ -1,25 +1,551 @@
-<!-- Stub: UNDER CONSTRUCTION — full content coming soon -->
+<!--
+  generic-interfaces-and-type-aliases.html
+  ==========================================
+  Module: TypeScript Generics
+  Lesson: Generic Interfaces and Type Aliases
+  Content-only fragment — no outer shell.
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Define generic interfaces and generic type aliases, and explain when each is the right tool</li>
+    <li>Write generic interfaces that describe reusable data shapes, including game entities and response wrappers</li>
+    <li>Create generic type aliases for union types, mapped types, and function signatures</li>
+    <li>Identify the structural difference between a generic interface and a generic type alias at the type level</li>
+    <li>
+      Apply generic interfaces and type aliases in ExcaliburJS contexts to type actor state, asset registries, and event payloads
+    </li>
   </ul>
 </section>
 
-<h2>UNDER CONSTRUCTION</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you are building a game where every entity on screen carries some kind of state: a player carries <code>PlayerState</code>, a
+  projectile carries <code>ProjectileState</code>, an enemy carries <code>EnemyState</code>. Without generics you end up writing nearly
+  identical interfaces three times. With generic interfaces you write the shape once and let the type parameter fill in the difference.
+</p>
+
+<p>
+  Type aliases do something similar but from a different angle. Where an interface declares a named object shape you can extend and
+  implement, a type alias names any type at all, including unions, intersections, mapped types, and conditional types. Together these
+  two features are the vocabulary you use to describe your whole data model in one place, precisely and without repetition.
+</p>
+
+<p>
+  This lesson draws a clear line between the two, shows where they overlap, and gives you patterns you can apply immediately in
+  ExcaliburJS scenes, actors, and event systems.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 1: GENERIC INTERFACES
+     ═══════════════════════════════════════════════ -->
+<h2>Generic Interfaces</h2>
+
+<p>
+  A generic interface is an interface that accepts one or more type parameters. The parameter appears between angle brackets after the
+  interface name and can be used anywhere inside the body.
+</p>
+
+<pre><code class="language-typescript">
+// A generic wrapper that describes any successful API response
+interface ApiResponse&lt;T&gt; {
+  data: T;
+  status: number;
+  ok: boolean;
+}
+
+// Usage: T is now inferred or explicitly set at each call site
+const levelResponse: ApiResponse&lt;{ name: string; par: number }&gt; = {
+  data: { name: "Ice Cavern", par: 3 },
+  status: 200,
+  ok: true,
+};
+
+console.log(levelResponse.data.name); // "Ice Cavern"
+</code></pre>
+
+<p>
+  The interface only describes shape. Nothing about it is tied to a specific data type until a consumer provides one. That separation
+  is the whole point.
+</p>
+
+<h3>Extending Generic Interfaces</h3>
+
+<p>
+  Generic interfaces participate in inheritance just like concrete interfaces. You can extend them, narrow the type parameter, or
+  introduce new ones.
+</p>
+
+<pre><code class="language-typescript">
+interface Entity&lt;TState&gt; {
+  id: string;
+  state: TState;
+  update(delta: number): void;
+}
+
+interface PlayerState {
+  health: number;
+  score: number;
+  lives: number;
+}
+
+// PlayerEntity extends the generic Entity with a concrete TState
+interface PlayerEntity extends Entity&lt;PlayerState&gt; {
+  respawn(): void;
+}
+
+// A function that works with any Entity regardless of its state shape
+function logEntityId&lt;TState&gt;(entity: Entity&lt;TState&gt;): void {
+  console.log(`Entity ID: ${entity.id}`);
+}
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      When you extend a generic interface with a concrete type argument (like
+      <code>Entity&lt;PlayerState&gt;</code>), the resulting interface is fully concrete. Downstream consumers no longer need to supply
+      a type parameter.
+    </p>
+  </div>
+</div>
+
+<h3>Adding Constraints to Type Parameters</h3>
+
+<p>
+  You can constrain what types are acceptable as arguments using <code>extends</code> on the parameter itself. This lets the interface
+  body safely access properties that every valid argument is guaranteed to have.
+</p>
+
+<pre><code class="language-typescript">
+// Every TState must have at least a `health` property
+interface CombatEntity&lt;TState extends { health: number }&gt; {
+  id: string;
+  state: TState;
+  takeDamage(amount: number): void;
+}
+
+interface BossState {
+  health: number;
+  phase: 1 | 2 | 3;
+  shieldActive: boolean;
+}
+
+// Valid: BossState satisfies the { health: number } constraint
+const boss: CombatEntity&lt;BossState&gt; = {
+  id: "boss-01",
+  state: { health: 500, phase: 1, shieldActive: true },
+  takeDamage(amount) {
+    this.state.health -= amount;
+  },
+};
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      Constraints narrow, they do not widen. <code>TState extends { health: number }</code> does not mean every <code>TState</code> is
+      exactly <code>{ health: number }</code>. It means every <code>TState</code> has at least a <code>health</code> number property.
+      The concrete type can have additional properties.
+    </p>
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════
+     SECTION 2: GENERIC TYPE ALIASES
+     ═══════════════════════════════════════════════ -->
+<h2>Generic Type Aliases</h2>
+
+<p>
+  A type alias names a type. When you add a type parameter it becomes a generic type alias: a reusable recipe for constructing a type.
+  Unlike interfaces, type aliases can name primitives, unions, tuples, function signatures, and mapped types. That makes them more
+  flexible but also less extensible.
+</p>
+
+<pre><code class="language-typescript">
+// A generic Result type that represents either success or failure
+type Result&lt;T, E = Error&gt; = 
+  | { ok: true; value: T }
+  | { ok: false; error: E };
+
+// Usage
+function loadLevel(id: string): Result&lt;Level&gt; {
+  if (!levelExists(id)) {
+    return { ok: false, error: new Error(`Level ${id} not found`) };
+  }
+  return { ok: true, value: fetchLevel(id) };
+}
+
+const result = loadLevel("world-2");
+
+if (result.ok) {
+  console.log(result.value.name); // TypeScript knows .value exists here
+} else {
+  console.error(result.error.message); // and .error exists here
+}
+</code></pre>
+
+<p>
+  This <code>Result</code> alias cannot be expressed as an interface because it is a union, not a single object shape. That is a
+  situation where a type alias is the only option.
+</p>
+
+<h3>Generic Type Aliases for Function Shapes</h3>
+
+<p>
+  Type aliases are particularly useful for naming generic function signatures. This is common in event systems, middleware pipelines,
+  and callback-heavy APIs like ExcaliburJS.
+</p>
+
+<pre><code class="language-typescript">
+// A generic event handler type
+type Handler&lt;TEvent&gt; = (event: TEvent) = void;
+
+// A registry mapping event names to their handlers
+type EventRegistry&lt;TMap extends Record&lt;string, unknown&gt;&gt; = {
+  [K in keyof TMap]: Handler&lt;TMap[K]&gt;;
+};
+
+// Define your game's event map
+interface GameEvents {
+  playerDied: { playerId: string; cause: string };
+  levelComplete: { levelId: string; timeMs: number };
+  enemySpawned: { enemyId: string; position: { x: number; y: number } };
+}
+
+// The registry is now fully typed for every event name
+const handlers: EventRegistry&lt;GameEvents&gt; = {
+  playerDied: ({ playerId, cause }) =&gt; {
+    console.log(`${playerId} died from ${cause}`);
+  },
+  levelComplete: ({ levelId, timeMs }) =&gt; {
+    console.log(`${levelId} cleared in ${timeMs}ms`);
+  },
+  enemySpawned: ({ enemyId, position }) =&gt; {
+    console.log(`${enemyId} spawned at (${position.x}, ${position.y})`);
+  },
+};
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      The mapped type <code>[K in keyof TMap]: Handler&lt;TMap[K]&gt;</code> iterates over every key in your event map and produces a
+      typed handler for each one. Add a new event to <code>GameEvents</code> and TypeScript immediately requires a matching handler in
+      the registry. Nothing is left implicit.
+    </p>
+  </div>
+</div>
+
+<h3>Default Type Parameters</h3>
+
+<p>
+  Both interfaces and type aliases support default values for type parameters. Defaults let callers omit the parameter when the common
+  case is obvious.
+</p>
+
+<pre><code class="language-typescript">
+// The error type defaults to Error if none is supplied
+type Result&lt;T, E = Error&gt; =
+  | { ok: true; value: T }
+  | { ok: false; error: E };
+
+// Callers rarely need to override E
+type LevelResult = Result&lt;Level&gt;;         // E = Error (default)
+type StringResult = Result&lt;string, string&gt;; // E = string (explicit)
+
+// Same pattern works for interfaces
+interface Store&lt;TValue, TKey = string&gt; {
+  get(key: TKey): TValue | undefined;
+  set(key: TKey, value: TValue): void;
+}
+
+// Common case: string keys
+const assetStore: Store&lt;HTMLImageElement&gt; = { ... };
+
+// Rare case: numeric keys
+const chunkStore: Store&lt;MapChunk, number&gt; = { ... };
+</code></pre>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3: INTERFACE vs TYPE ALIAS
+     ═══════════════════════════════════════════════ -->
+<h2>Interface vs. Type Alias: When to Use Which</h2>
+
+<p>
+  Both tools can describe object shapes with type parameters. The meaningful differences appear when you need features that only one of
+  them supports.
+</p>
+
+<pre><code class="language-typescript">
+// These two are structurally equivalent for object shapes
+interface AssetCache&lt;T&gt; {
+  get(key: string): T | undefined;
+  set(key: string, asset: T): void;
+  has(key: string): boolean;
+}
+
+type AssetCacheAlias&lt;T&gt; = {
+  get(key: string): T | undefined;
+  set(key: string, asset: T): void;
+  has(key: string): boolean;
+};
+</code></pre>
+
+<p>For plain object shapes the two are interchangeable. The differences show up in specific scenarios:</p>
+
+<pre><code class="language-typescript">
+// 1. Declaration merging: interfaces support it, type aliases do not
+interface Plugin {
+  name: string;
+}
+interface Plugin {
+  version: string; // merges with the first declaration
+}
+// Plugin now has both name and version
+
+// 2. Implementing in a class: interfaces work, type aliases for unions do not
+class SoundCache implements AssetCache&lt;AudioBuffer&gt; {
+  private store = new Map&lt;string, AudioBuffer&gt;();
+  get(key: string) { return this.store.get(key); }
+  set(key: string, asset: AudioBuffer) { this.store.set(key, asset); }
+  has(key: string) { return this.store.has(key); }
+}
+
+// 3. Union types: only type aliases can express them
+type SpriteOrAudio = HTMLImageElement | AudioBuffer; // not possible as interface
+
+// 4. Computed / mapped types: only type aliases support them
+type Nullable&lt;T&gt; = { [K in keyof T]: T[K] | null };
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      Use an interface when describing an object shape that classes may implement or that library consumers might extend. Use a type
+      alias when describing unions, mapped types, tuples, or function signatures, or when you need a name for a type that is not purely
+      an object shape.
+    </p>
+  </div>
+</div>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Declaration merging (the ability to re-open an interface and add properties) is powerful but can be surprising. If you ship a
+      library that exports interfaces, consumers can extend them without your knowledge. If that is not the behavior you want,
+      exporting type aliases prevents accidental merging.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The playground below demonstrates generic interfaces and type aliases working together in a small ExcaliburJS scene. A generic
+  <code>ActorState</code> interface types the data each actor carries, while a generic <code>Result</code> type alias handles the
+  outcome of loading a tilemap. Run it, then try adding a new field to <code>EnemyState</code> and watch TypeScript enforce it at every
+  usage site.
+</p>
+
+<excalibur-playground label="Try It: Generic Interfaces and Type Aliases" height="520">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    // Generic interface: any actor can carry its own state shape
+    interface ActorWithState<TState> {
+      actor: ex.Actor;
+      state: TState;
+      onUpdate(delta: number): void;
+    }
+
+    // Generic type alias: a discriminated union for load results
+    type LoadResult<T> =
+      | { ok: true; value: T }
+      | { ok: false; reason: string };
+
+    // Concrete state types
+    interface PlayerState {
+      health: number;
+      score: number;
+    }
+
+    interface EnemyState {
+      health: number;
+      speed: number;
+      patrolRadius: number;
+    }
+
+    // Factory: creates a typed actor wrapper
+    function createActorWithState<TState>(
+      config: ex.ActorArgs,
+      initialState: TState
+    ): ActorWithState<TState> {
+      return {
+        actor: new ex.Actor(config),
+        state: { ...initialState },
+        onUpdate(delta: number) {
+          // delta available, state is fully typed
+        },
+      };
+    }
+
+    // Simulate loading a map resource
+    function loadMap(name: string): LoadResult<{ name: string; tileSize: number }> {
+      if (name === "missing") {
+        return { ok: false, reason: `Map "${name}" not found` };
+      }
+      return { ok: true, value: { name, tileSize: 16 } };
+    }
+
+    // Scene setup
+    const game = new ex.Engine({ width: 600, height: 400 });
+
+    const scene = new ex.Scene();
+
+    const player = createActorWithState<PlayerState>(
+      { x: 300, y: 200, width: 32, height: 32, color: ex.Color.Blue },
+      { health: 100, score: 0 }
+    );
+
+    const enemy = createActorWithState<EnemyState>(
+      { x: 100, y: 150, width: 24, height: 24, color: ex.Color.Red },
+      { health: 40, speed: 60, patrolRadius: 80 }
+    );
+
+    scene.add(player.actor);
+    scene.add(enemy.actor);
+
+    // Narrowed access via the Result type alias
+    const mapResult = loadMap("world-1");
+    if (mapResult.ok) {
+      console.log(`Loaded map: ${mapResult.value.name} (tile size ${mapResult.value.tileSize}px)`);
+    } else {
+      console.warn(`Map load failed: ${mapResult.reason}`);
+    }
+
+    game.addScene("main", scene);
+    game.goToScene("main");
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Generic Asset Registry</div>
+  <div class="exercise__body">
+    <p>
+      Game engines typically manage pools of typed assets: images, sounds, fonts, tilemaps. Your task is to model this with a generic
+      interface and a supporting type alias.
+    </p>
+    <ol>
+      <li>
+        Declare a generic interface <code>Registry&lt;TAsset&gt;</code> with three methods:
+        <code>register(key: string, asset: TAsset): void</code>, <code>get(key: string): TAsset | undefined</code>, and
+        <code>keys(): string[]</code>.
+      </li>
+      <li>
+        Write a concrete class <code>ImageRegistry</code> that implements <code>Registry&lt;HTMLImageElement&gt;</code> using a
+        <code>Map</code> internally.
+      </li>
+      <li>
+        Declare a type alias <code>RegistryEntry&lt;T&gt;</code> that is a tuple of <code>[key: string, asset: T]</code>. Add a method
+        <code>entries(): RegistryEntry&lt;TAsset&gt;[]</code> to the interface and implement it in your class.
+      </li>
+      <li>
+        Instantiate <code>ImageRegistry</code>, register two fake image references, then log all entries using
+        <code>entries()</code> and confirm TypeScript correctly types each tuple element.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript accepts the implementation without errors and every call to <code>get()</code> and
+      <code>entries()</code> returns a correctly typed value.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Type-Safe Event Bus</div>
+  <p>
+    Design a generic <code>EventBus&lt;TMap&gt;</code> interface where <code>TMap</code>
+    maps event names to their payload types. It should expose
+    <code>on&lt;K extends keyof TMap&gt;(event: K, handler: (payload: TMap[K]) =&gt; void): void</code>
+    and
+    <code>emit&lt;K extends keyof TMap&gt;(event: K, payload: TMap[K]): void</code>. Implement the interface in a class using a
+    <code>Map</code> of handler arrays. Then define a <code>GameEventMap</code> interface with at least three events and wire up a
+    scene that emits and handles them. TypeScript must reject any call where the payload type does not match the declared event.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span
+        >Generic interfaces accept type parameters, letting you describe reusable object shapes without repeating yourself for every
+        concrete type.</span
+      >
+    </li>
+    <li>
+      <span
+        >Generic type aliases can name any type, including unions, tuples, mapped types, and function signatures, making them more
+        flexible than interfaces for non-object shapes.</span
+      >
+    </li>
+    <li>
+      <span
+        >Type parameter constraints (<code>T extends SomeShape</code>) let the interface or alias body safely access properties
+        guaranteed by the constraint.</span
+      >
+    </li>
+    <li>
+      <span
+        >Default type parameters let callers omit the argument when the common case is obvious, keeping call sites clean without losing
+        type precision.</span
+      >
+    </li>
+    <li>
+      <span
+        >Use an interface when you need declaration merging, class implementation, or a shape that library consumers should be able to
+        extend. Use a type alias for everything else.</span
+      >
+    </li>
+    <li>
+      <span
+        >In ExcaliburJS, generic interfaces and type aliases naturally model actor state, asset registries, event payloads, and load
+        results without duplicating code across entity types.</span
+      >
+    </li>
   </ul>
 </section>

@@ -1,25 +1,473 @@
-<!-- Stub: UNDER CONSTRUCTION — full content coming soon -->
+<!--
+  generic-constraints.html
+  ========================
+  Track:  TypeScript Fundamentals
+  Module: Functions
+  Lesson: Generic Constraints
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Explain what a generic constraint is and why unconstrained generics are sometimes too permissive</li>
+    <li>Write <code>extends</code> constraints on type parameters to restrict what types a generic accepts</li>
+    <li>Use <code>keyof</code> together with a generic constraint to safely access object properties by name</li>
+    <li>Apply multiple constraints with intersection types to express compound requirements</li>
+    <li>Recognize where generic constraints show up in ExcaliburJS patterns and how to write your own constrained helpers</li>
   </ul>
 </section>
 
-<h2>UNDER CONSTRUCTION</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Generics let you write code that works with many types at once. But sometimes
+  <em>any</em> type is too broad. If you write a function that reads the <code>.name</code> property from its argument, a bare
+  <code>T</code> will not do: TypeScript has no reason to believe <code>T</code> has a <code>name</code> property at all, and it will
+  refuse to compile the access. Generic constraints solve this by letting you say "T can be anything,
+  <em>as long as it satisfies this shape</em>."
+</p>
+
+<p>
+  This is the difference between a generic that is merely flexible and one that is actually safe. Constraints let the compiler help you
+  without forcing you to abandon the reusability that made you reach for a generic in the first place.
+</p>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Before you start</div>
+    <p>
+      This lesson builds on the Generics in Functions lesson. Make sure you are comfortable writing a basic generic function signature
+      (<code>function identity&lt;T&gt;(value: T): T</code>) before continuing.
+    </p>
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════
+     SECTION 1: THE PROBLEM WITH UNCONSTRAINED GENERICS
+     ═══════════════════════════════════════════════ -->
+<h2>The Problem with Unconstrained Generics</h2>
+
+<p>Consider a function that is supposed to log the name of any game entity. A first attempt might look like this:</p>
+
+<pre><code class="language-typescript">
+// BROKEN: TypeScript does not know T has a "name" property
+function logName&lt;T&gt;(entity: T): void {
+  console.log(entity.name); // Error: Property 'name' does not exist on type 'T'
+}
+</code></pre>
+
+<p>
+  TypeScript refuses because <code>T</code> could be a number, a boolean, or anything else that has no <code>name</code>. The compiler
+  is protecting you from a runtime error you would only discover during a game session.
+</p>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">The any escape hatch is not the answer</div>
+    <p>
+      You could cast <code>entity</code> to <code>any</code> to silence the error, but that throws away type safety everywhere the
+      function is used. Constraints are the right tool here.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2: THE extends KEYWORD
+     ═══════════════════════════════════════════════ -->
+<h2>Constraining with <code>extends</code></h2>
+
+<p>
+  The <code>extends</code> keyword in a type parameter position means "T must be assignable to this type." It does
+  <strong>not</strong> mean inheritance the way it does in a class definition. Think of it as a minimum-shape requirement.
+</p>
+
+<pre><code class="language-typescript">
+// Declare a minimal shape
+interface Named {
+  name: string;
+}
+
+// T must be a type that has at least a "name: string" property
+function logName&lt;T extends Named&gt;(entity: T): void {
+  console.log(entity.name); // Safe now: TypeScript knows name exists
+}
+
+// Works: object satisfies the Named shape
+logName({ name: "Player", health: 100 });
+
+// Error: number does not have a "name" property
+logName(42);
+</code></pre>
+
+<p>
+  The call site still infers <code>T</code> from the argument. If you pass an object with extra properties, TypeScript keeps track of
+  those too. The constraint is a <em>floor</em>, not a ceiling.
+</p>
+
+<pre><code class="language-typescript">
+interface Named {
+  name: string;
+}
+
+function cloneWithTag&lt;T extends Named&gt;(entity: T, tag: string): T {
+  return { ...entity, name: `${entity.name} [${tag}]` };
+}
+
+const enemy = { name: "Goblin", health: 40, speed: 2 };
+const tagged = cloneWithTag(enemy, "elite");
+// tagged is still { name: string; health: number; speed: number }
+// The full shape of T is preserved
+console.log(tagged.speed); // 2 — no information is lost
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Return type follows the input type</div>
+    <p>
+      Because the return type is <code>T</code> (not just <code>Named</code>), callers get back the <em>specific</em> type they passed
+      in, including any extra properties. If you returned <code>Named</code> instead, those extra properties would be hidden from
+      callers.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3: keyof CONSTRAINTS
+     ═══════════════════════════════════════════════ -->
+<h2>Combining <code>keyof</code> with Constraints</h2>
+
+<p>
+  A very common pattern pairs two type parameters: one for an object type and one constrained to be a key of that object. This lets you
+  write a safe property-access helper that TypeScript can reason about completely.
+</p>
+
+<pre><code class="language-typescript">
+// K must be one of the actual keys of T
+function getProperty&lt;T, K extends keyof T&gt;(obj: T, key: K): T[K] {
+  return obj[key];
+}
+
+const actor = { name: "Hero", x: 100, y: 200 };
+
+const name = getProperty(actor, "name"); // type: string
+const x    = getProperty(actor, "x");    // type: number
+
+// Error: "speed" is not a key of typeof actor
+getProperty(actor, "speed");
+</code></pre>
+
+<p>
+  The return type <code>T[K]</code> is an <em>indexed access type</em>. It resolves to whatever type that key actually holds, so you
+  get precise inference at the call site, not a vague <code>string | number | boolean</code>
+  union.
+</p>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">keyof produces a union of literal key types</div>
+    <p>
+      For <code>{ name: string; x: number }</code>, <code>keyof</code> produces <code>"name" | "x"</code>. Constraining
+      <code>K extends keyof T</code>
+      means TypeScript will reject any string that is not literally one of those keys at compile time.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 4: MULTIPLE CONSTRAINTS
+     ═══════════════════════════════════════════════ -->
+<h2>Multiple Constraints</h2>
+
+<p>
+  A type parameter can only have one <code>extends</code> clause, but you can express multiple requirements by intersecting the
+  constraint types with <code>&amp;</code>.
+</p>
+
+<pre><code class="language-typescript">
+interface Named {
+  name: string;
+}
+
+interface Positionable {
+  x: number;
+  y: number;
+}
+
+// T must satisfy both Named AND Positionable
+function describeEntity&lt;T extends Named &amp; Positionable&gt;(entity: T): string {
+  return `${entity.name} is at (${entity.x}, ${entity.y})`;
+}
+
+// Works: object has name, x, and y
+describeEntity({ name: "Slime", x: 50, y: 75, health: 10 });
+
+// Error: missing x and y
+describeEntity({ name: "Ghost" });
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Prefer narrow constraints</div>
+    <p>
+      Only constrain what your function body actually needs. A constraint that requires too much forces callers to build objects that
+      satisfy unnecessary properties, which reduces reusability. Ask yourself: "Would the function body break if I removed this
+      constraint?" If not, remove it.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 5: DEFAULT TYPE PARAMETERS
+     ═══════════════════════════════════════════════ -->
+<h2>Default Type Parameters</h2>
+
+<p>
+  TypeScript also allows you to give a type parameter a default, using
+  <code>= SomeType</code> after the constraint. This is useful when a generic function or class has a natural "common case" type that
+  callers do not need to specify every time.
+</p>
+
+<pre><code class="language-typescript">
+interface ActorConfig {
+  name: string;
+  color?: string;
+}
+
+// T defaults to ActorConfig when the caller does not provide a type argument
+function createActor&lt;T extends ActorConfig = ActorConfig&gt;(config: T): T {
+  return { color: "white", ...config };
+}
+
+// TypeScript infers T = ActorConfig, no explicit type argument needed
+const hero = createActor({ name: "Hero" });
+
+// Caller can still provide a more specific type
+interface EnemyConfig extends ActorConfig {
+  damage: number;
+}
+
+const goblin = createActor&lt;EnemyConfig&gt;({ name: "Goblin", damage: 5 });
+console.log(goblin.damage); // 5
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Default vs constraint</div>
+    <p>
+      The default (<code>= ActorConfig</code>) is what TypeScript uses when no argument is supplied. The constraint (<code
+        >extends ActorConfig</code
+      >) is what TypeScript enforces regardless. They are independent: you can have a constraint without a default, a default without a
+      constraint, or both together as shown above.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 6: EXCALIBUR CONTEXT
+     ═══════════════════════════════════════════════ -->
+<h2>Generic Constraints in an ExcaliburJS Context</h2>
+
+<p>
+  ExcaliburJS uses generics extensively in its <code>Actor</code> and component APIs. You will often write helper utilities that should
+  work with any Actor subclass. Generic constraints let those helpers remain reusable without sacrificing the type information that
+  subclasses carry.
+</p>
+
+<pre><code class="language-typescript">
+import { Actor } from "excalibur";
+
+// Constrain T to any Actor or Actor subclass
+function resetPosition&lt;T extends Actor&gt;(actor: T): T {
+  actor.pos.x = 0;
+  actor.pos.y = 0;
+  return actor; // returns the specific subclass, not just Actor
+}
+
+class Hero extends Actor {
+  sword: string = "iron";
+}
+
+const hero = new Hero();
+const reset = resetPosition(hero);
+console.log(reset.sword); // "iron" — Hero-specific property is still visible
+</code></pre>
+
+<p>
+  Without the constraint, TypeScript would not know that <code>T</code> has a <code>pos</code> property. With
+  <code>T extends Actor</code>, it can verify the access and still give callers back their specific subclass type.
+</p>
+
+<pre><code class="language-typescript">
+import { Actor } from "excalibur";
+
+// A utility that reads any property from any Actor subclass
+function readActorProp&lt;T extends Actor, K extends keyof T&gt;(
+  actor: T,
+  key: K
+): T[K] {
+  return actor[key];
+}
+
+class Enemy extends Actor {
+  damage: number = 10;
+}
+
+const goblin = new Enemy();
+const dmg = readActorProp(goblin, "damage"); // type: number
+const posX = readActorProp(goblin, "pos");   // type: Vector
+</code></pre>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The playground below demonstrates a constrained generic helper that positions any <code>Actor</code> subclass and returns the same
+  specific type back to the caller. Modify the constraint or add a second type parameter to explore how TypeScript responds.
+</p>
+
+<excalibur-playground label="Try It: Generic Constraints with Actors" height="520">
+  <script type="text/plain" slot="code">
+    import { Actor, Engine, Color, Vector } from "excalibur";
+
+    // A constrained generic that works with any Actor or subclass
+    function placeAt&lt;T extends Actor&gt;(actor: T, x: number, y: number): T {
+      actor.pos = new Vector(x, y);
+      return actor;
+    }
+
+    // A keyof-constrained helper to read any Actor property safely
+    function readProp&lt;T extends Actor, K extends keyof T&gt;(actor: T, key: K): T[K] {
+      return actor[key];
+    }
+
+    class Hero extends Actor {
+      label: string;
+      constructor(label: string) {
+        super({ color: Color.Blue, width: 40, height: 40 });
+        this.label = label;
+      }
+    }
+
+    const game = new Engine({ width: 600, height: 400 });
+
+    game.start().then(() => {
+      const hero = new Hero("Player");
+
+      // placeAt returns Hero (not just Actor), so .label is accessible
+      const placed = placeAt(hero, 200, 150);
+      console.log(placed.label); // "Player"
+
+      // readProp uses keyof to ensure "color" is a real Actor key
+      console.log(readProp(hero, "color"));
+
+      game.add(placed);
+    });
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Safe Stats Reader</div>
+  <div class="exercise__body">
+    <p>
+      Write a generic function called <code>getStat</code> that reads a numeric property from any object, as long as the property
+      actually exists and is a number.
+    </p>
+    <ol>
+      <li>
+        Define an interface called <code>HasStats</code> with at least one numeric property of your choice (for example,
+        <code>health: number</code>).
+      </li>
+      <li>
+        Write <code>getStat</code> with two type parameters: <code>T extends HasStats</code> and <code>K extends keyof T</code>. Return
+        type should be <code>T[K]</code>.
+      </li>
+      <li>
+        Call <code>getStat</code> with a game entity object and a valid key. Confirm TypeScript infers the return type correctly.
+      </li>
+      <li>Try calling it with a key that does not exist on the object and observe the compiler error.</li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript accepts valid key names and rejects invalid ones at compile time, with the return
+      type matching the property's actual type.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Multi-Constraint Entity Merger</div>
+  <p>
+    Write a generic function <code>mergeEntities</code> that accepts two arguments, both constrained to satisfy a
+    <code>Named</code> interface and a <code>Serializable</code> interface (which you define with a
+    <code>serialize(): string</code> method). The function should return a new object whose <code>name</code> is a combination of both
+    input names, and whose <code>serialize</code> method returns a JSON string of the merged result. Make the return type as precise as
+    possible. Consider what happens if the two arguments have different concrete types, and whether the function can still preserve
+    that information.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span
+        >The <code>extends</code> keyword in a type parameter sets a minimum shape that any supplied type must satisfy, turning a
+        permissive generic into a safe one.</span
+      >
+    </li>
+    <li>
+      <span
+        >Constraints are a floor, not a ceiling: callers can pass richer types than the constraint requires, and TypeScript preserves
+        that extra information through the function.</span
+      >
+    </li>
+    <li>
+      <span
+        >Pairing <code>K extends keyof T</code> with an indexed access return type <code>T[K]</code> gives you a fully type-safe
+        property accessor with no casting required.</span
+      >
+    </li>
+    <li>
+      <span
+        >Multiple requirements are expressed by intersecting constraint types with <code>&amp;</code>, since a type parameter can only
+        have one <code>extends</code> clause.</span
+      >
+    </li>
+    <li>
+      <span
+        >Default type parameters (<code>= SomeType</code>) complement constraints by providing a fallback when callers do not supply an
+        explicit type argument.</span
+      >
+    </li>
+    <li>
+      <span
+        >In ExcaliburJS, constraining helpers to <code>T extends Actor</code> lets utility functions work across all Actor subclasses
+        while keeping subclass-specific properties visible to callers.</span
+      >
+    </li>
   </ul>
 </section>

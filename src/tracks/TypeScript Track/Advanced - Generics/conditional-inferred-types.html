@@ -1,25 +1,498 @@
-<!-- Stub: UNDER CONSTRUCTION — full content coming soon -->
+<!--
+  conditional-inferred-types.html
+  ================================
+  Lesson: Conditional & Inferred Types with Generics
+  Module: Generics
+  Track: TypeScript Academy
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Write conditional types using the <code>T extends U ? X : Y</code> syntax and explain how TypeScript evaluates them</li>
+    <li>Use the <code>infer</code> keyword to extract and name types from within a conditional branch</li>
+    <li>Build reusable generic utility types such as <code>UnwrapPromise</code> and <code>ReturnType</code> from scratch</li>
+    <li>Apply distributive conditional types to transform union members individually</li>
+    <li>
+      Recognize where conditional and inferred types appear in ExcaliburJS-style game code and use them to reduce type duplication
+    </li>
   </ul>
 </section>
 
-<h2>UNDER CONSTRUCTION</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Generic type parameters let you write flexible, reusable code. But sometimes a generic alone is not enough: you want the
+  <em>output</em> type to change based on what the <em>input</em> type looks like. That is exactly what
+  <strong>conditional types</strong> give you.
+</p>
+
+<p>
+  Think about a game loader that accepts either a <code>Promise&lt;Sprite&gt;</code> or a plain <code>Sprite</code>. Regardless of
+  which form you pass in, you want to end up with just <code>Sprite</code>. Without conditional types you end up with two overloads or
+  a manual union. With them, a single generic type handles the unwrapping automatically, and the compiler enforces it.
+</p>
+
+<p>
+  This lesson builds conditional types from first principles, introduces the
+  <code>infer</code> keyword that makes them truly powerful, and shows how TypeScript's built-in utility types like
+  <code>ReturnType</code> and <code>Parameters</code> are written using these same ideas.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 1: THE CONDITIONAL TYPE SYNTAX
+     ═══════════════════════════════════════════════ -->
+<h2>Conditional Types: <code>T extends U ? X : Y</code></h2>
+
+<p>
+  A conditional type is a ternary expression at the type level. TypeScript asks: "does <code>T</code> satisfy the constraint
+  <code>U</code>?" If yes, the whole type resolves to <code>X</code>; if no, it resolves to <code>Y</code>.
+</p>
+
+<pre><code class="language-typescript">// The basic shape
+type IsString&lt;T&gt; = T extends string ? "yes" : "no";
+
+type A = IsString&lt;string&gt;;   // "yes"
+type B = IsString&lt;number&gt;;   // "no"
+type C = IsString&lt;"hello"&gt;;  // "yes" — literal "hello" extends string
+</code></pre>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      <code>extends</code> inside a conditional type does <strong>not</strong> mean inheritance the way it does in a class. It means
+      "is assignable to" or "is a subtype of." A string literal is assignable to <code>string</code>, so
+      <code>"hello" extends string</code> is true.
+    </p>
   </div>
 </div>
 
+<h3>Chaining conditionals</h3>
+
+<p>You can nest conditional types just like nested ternaries in JavaScript. Keep them shallow enough to stay readable.</p>
+
+<pre><code class="language-typescript">type TypeName&lt;T&gt; =
+  T extends string  ? "string"  :
+  T extends number  ? "number"  :
+  T extends boolean ? "boolean" :
+  T extends object  ? "object"  :
+  "other";
+
+type T1 = TypeName&lt;42&gt;;      // "number"
+type T2 = TypeName&lt;boolean&gt;; // "boolean"
+type T3 = TypeName&lt;symbol&gt;;  // "other"
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Hover over <code>T1</code>, <code>T2</code>, and <code>T3</code> in your editor. TypeScript will eagerly evaluate and display the
+      resolved string literal type, which makes conditional types much easier to debug than you might expect.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2: THE infer KEYWORD
+     ═══════════════════════════════════════════════ -->
+<h2>Extracting Types with <code>infer</code></h2>
+
+<p>
+  The real superpower of conditional types arrives when you combine them with the <code>infer</code> keyword. Instead of testing
+  whether a type matches a shape and then hard-coding what to return, you can ask TypeScript to
+  <em>capture a piece of that shape</em> and name it so you can use it on the right-hand side.
+</p>
+
+<pre><code class="language-typescript">// Without infer — you can check, but you cannot extract
+type IsArray&lt;T&gt; = T extends Array&lt;unknown&gt; ? "yes" : "no";
+
+// With infer — you can check AND extract the element type
+type ElementOf&lt;T&gt; = T extends Array&lt;infer Item&gt; ? Item : never;
+
+type E1 = ElementOf&lt;string[]&gt;;         // string
+type E2 = ElementOf&lt;number[]&gt;;         // number
+type E3 = ElementOf&lt;(Sprite | Actor)[]&gt;; // Sprite | Actor
+type E4 = ElementOf&lt;string&gt;;           // never (not an array)
+</code></pre>
+
+<p>
+  <code>infer Item</code> tells TypeScript: "if this matches, bind whatever fills the <code>Item</code> slot to the name
+  <code>Item</code>, and make that name available in the true branch." The name you choose is a local type variable scoped to that
+  conditional.
+</p>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      <code>infer</code> is only valid inside the <code>extends</code> clause of a conditional type. You cannot use it outside that
+      context. Think of it as pattern matching: TypeScript tries to match the shape and, if it succeeds, fills in the named slots you
+      declared with <code>infer</code>.
+    </p>
+  </div>
+</div>
+
+<h3>Unwrapping a Promise</h3>
+
+<p>
+  One of the most common uses for <code>infer</code> is stripping the <code>Promise</code> wrapper from an async value. This pattern
+  shows up constantly in game loaders, asset pipelines, and any code that bridges async loading with synchronous game logic.
+</p>
+
+<pre><code class="language-typescript">type Awaited&lt;T&gt; = T extends Promise&lt;infer Value&gt; ? Value : T;
+
+type A = Awaited&lt;Promise&lt;Sprite&gt;&gt;; // Sprite
+type B = Awaited&lt;Promise&lt;number&gt;&gt;; // number
+type C = Awaited&lt;Sprite&gt;;          // Sprite  (not a Promise, passthrough)
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      TypeScript 4.5+ ships <code>Awaited&lt;T&gt;</code> as a built-in utility type, and it handles deeply nested promises
+      recursively. The version above is a simplified illustration. The principle is identical.
+    </p>
+  </div>
+</div>
+
+<h3>Extracting function shapes</h3>
+
+<p>You can infer from any structural position: tuple slots, function parameters, return types, constructor signatures, and more.</p>
+
+<pre><code class="language-typescript">// Recreating TypeScript's built-in ReturnType
+type MyReturnType&lt;T extends (...args: any[]) => any&gt;
+  = T extends (...args: any[]) => infer R ? R : never;
+
+// Recreating TypeScript's built-in Parameters
+type MyParameters&lt;T extends (...args: any[]) => any&gt;
+  = T extends (...args: infer P) => any ? P : never;
+
+// ---- usage in game code ----
+type SpawnFn = (x: number, y: number, label: string) => Actor;
+
+type SpawnReturn = MyReturnType&lt;SpawnFn&gt;;   // Actor
+type SpawnArgs   = MyParameters&lt;SpawnFn&gt;;   // [number, number, string]
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      <code>MyReturnType</code> and <code>MyParameters</code> above are exactly how TypeScript's standard library defines them. If you
+      understand this pattern, you can read and extend any utility type in <code>lib.d.ts</code>.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3: DISTRIBUTIVE CONDITIONAL TYPES
+     ═══════════════════════════════════════════════ -->
+<h2>Distributive Conditional Types</h2>
+
+<p>
+  When you pass a union type to a conditional type and the type parameter is "naked" (not wrapped in another type), TypeScript
+  automatically distributes the conditional over each union member.
+</p>
+
+<pre><code class="language-typescript">type ToArray&lt;T&gt; = T extends any ? T[] : never;
+
+type Result = ToArray&lt;string | number&gt;;
+// TypeScript distributes this as:
+// ToArray&lt;string&gt; | ToArray&lt;number&gt;
+// => string[] | number[]
+</code></pre>
+
+<p>
+  Distribution is usually what you want. But sometimes you need to suppress it, for example when you want to check whether a union
+  <em>as a whole</em>
+  extends something. Wrap the type parameter in a one-element tuple to opt out.
+</p>
+
+<pre><code class="language-typescript">// Distributed — checks each member individually
+type IsStringDist&lt;T&gt; = T extends string ? true : false;
+type D = IsStringDist&lt;string | number&gt;; // boolean (true | false)
+
+// Non-distributed — checks the union as a unit
+type IsStringFull&lt;T&gt; = [T] extends [string] ? true : false;
+type F = IsStringFull&lt;string | number&gt;; // false
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Distribution only happens when the type parameter is <strong>bare</strong> on the left side of <code>extends</code>. Writing
+      <code>T[]</code>, <code>[T]</code>, or <code>Promise&lt;T&gt;</code>
+      on the left side disables distribution. This catches people by surprise when they wrap the parameter for reasons unrelated to
+      distribution.
+    </p>
+  </div>
+</div>
+
+<h3>Filtering union members</h3>
+
+<p>
+  Distribution lets you build a filter that removes union members that do not meet a condition. The built-in <code>Extract</code> and
+  <code>Exclude</code>
+  utility types work this way.
+</p>
+
+<pre><code class="language-typescript">// Keep only members that extend Filter
+type MyExtract&lt;T, Filter&gt; = T extends Filter ? T : never;
+
+// Remove members that extend Excluded
+type MyExclude&lt;T, Excluded&gt; = T extends Excluded ? never : T;
+
+type Events = "keydown" | "keyup" | "mousedown" | "mousemove";
+
+type KeyEvents   = MyExtract&lt;Events, `key${string}`&gt;;
+// "keydown" | "keyup"
+
+type MouseEvents = MyExclude&lt;Events, `key${string}`&gt;;
+// "mousedown" | "mousemove"
+</code></pre>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 4: REAL-WORLD PATTERNS IN EXCALIBUR
+     ═══════════════════════════════════════════════ -->
+<h2>Patterns in ExcaliburJS Game Code</h2>
+
+<p>
+  Game engines produce exactly the kind of layered, polymorphic data that conditional types are designed to handle. Here are three
+  patterns you will encounter when working with ExcaliburJS.
+</p>
+
+<h3>Normalizing a mixed asset argument</h3>
+
+<pre><code class="language-typescript">import { Sprite, ImageSource } from "excalibur";
+
+// A loader might accept a raw source or a pre-built sprite
+type NormalizeAsset&lt;T&gt; =
+  T extends ImageSource ? Sprite :
+  T extends Sprite       ? Sprite :
+  never;
+
+function loadAsset&lt;T extends ImageSource | Sprite&gt;(
+  asset: T
+): NormalizeAsset&lt;T&gt; {
+  if (asset instanceof ImageSource) {
+    return asset.toSprite() as NormalizeAsset&lt;T&gt;;
+  }
+  return asset as NormalizeAsset&lt;T&gt;;
+}
+
+const a = loadAsset(new ImageSource("/hero.png")); // Sprite
+const b = loadAsset(new Sprite({ /* ... */ }));    // Sprite
+</code></pre>
+
+<h3>Inferring component data type from a tag</h3>
+
+<pre><code class="language-typescript">// Imagine a small component registry
+interface ComponentMap {
+  health:   { current: number; max: number };
+  velocity: { vx: number; vy: number };
+  label:    { text: string };
+}
+
+type ComponentData&lt;T extends keyof ComponentMap&gt; =
+  ComponentMap[T] extends infer D ? D : never;
+
+type HealthData   = ComponentData&lt;"health"&gt;;   // { current: number; max: number }
+type VelocityData = ComponentData&lt;"velocity"&gt;; // { vx: number; vy: number }
+</code></pre>
+
+<h3>Deep-unwrapping an async resource</h3>
+
+<pre><code class="language-typescript">// Recursively unwrap nested promises (matches TypeScript's built-in Awaited)
+type DeepAwaited&lt;T&gt; =
+  T extends Promise&lt;infer Inner&gt;
+    ? DeepAwaited&lt;Inner&gt;
+    : T;
+
+type Result = DeepAwaited&lt;Promise&lt;Promise&lt;Sprite&gt;&gt;&gt;; // Sprite
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      TypeScript limits recursive conditional type depth to prevent infinite loops at compile time. For most game use cases the default
+      limit is more than sufficient, but keep recursion shallow whenever you can.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The playground below demonstrates a conditional type that normalizes a resource argument (either a raw <code>ImageSource</code> or a
+  ready-made <code>Sprite</code>) into a consistent <code>Sprite</code>. Adjust the types and watch how the compiler resolves them.
+</p>
+
+<excalibur-playground label="Try It: Conditional Asset Loader" height="520">
+  <script type="text/plain" slot="code">
+    import { Engine, Actor, ImageSource, Sprite, Vector, Color } from "excalibur";
+
+    // --- Conditional type: normalize ImageSource | Sprite -> Sprite ---
+    type NormalizeAsset<T> =
+      T extends ImageSource ? Sprite :
+      T extends Sprite       ? Sprite :
+      never;
+
+    // --- Infer the resolved type from any async loader fn ---
+    type LoaderReturn<T extends (...args: any[]) => Promise<any>> =
+      T extends (...args: any[]) => Promise<infer R> ? R : never;
+
+    // A stand-in synchronous loader for the playground
+    function makeSprite<T extends ImageSource | Sprite>(asset: T): NormalizeAsset<T> {
+      if (asset instanceof ImageSource) {
+        // In real code: asset.toSprite()
+        return new Sprite({ image: asset }) as NormalizeAsset<T>;
+      }
+      return asset as NormalizeAsset<T>;
+    }
+
+    // --- Game setup ---
+    const game = new Engine({ width: 600, height: 400 });
+
+    const actor = new Actor({
+      pos: new Vector(300, 200),
+      color: Color.Violet,
+      width: 60,
+      height: 60,
+    });
+
+    game.currentScene.add(actor);
+
+    // Hover over `resolved` in your editor — TypeScript knows it is Sprite
+    const placeholder = new Sprite({ image: new ImageSource("/placeholder.png") });
+    const resolved = makeSprite(placeholder);
+
+    console.log("Resolved type is always Sprite:", resolved instanceof Sprite);
+
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a <code>Flatten</code> Utility Type</div>
+  <div class="exercise__body">
+    <p>
+      Write a generic utility type called <code>Flatten&lt;T&gt;</code> that unwraps one level of array nesting. If <code>T</code> is
+      an array, return the element type. If <code>T</code> is not an array, return <code>T</code> unchanged.
+    </p>
+    <ol>
+      <li>Define <code>type Flatten&lt;T&gt; = ...</code> using a conditional type and the <code>infer</code> keyword.</li>
+      <li>
+        Verify all four of these resolve correctly:
+        <pre><code class="language-typescript">type F1 = Flatten&lt;string[]&gt;;          // string
+type F2 = Flatten&lt;number[][]&gt;;        // number[]  (one level only)
+type F3 = Flatten&lt;Actor[]&gt;;           // Actor
+type F4 = Flatten&lt;string&gt;;            // string    (passthrough)
+</code></pre>
+      </li>
+      <li>
+        Add a second type called <code>DeepFlatten&lt;T&gt;</code> that unwraps arrays recursively until it reaches a non-array type.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> All four checks pass with no type errors, and
+      <code>DeepFlatten&lt;number[][][]&gt;</code> resolves to <code>number</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">A Typed Event Dispatcher</div>
+  <p>Imagine a game event bus where each event name maps to a payload type:</p>
+  <pre><code class="language-typescript">interface GameEvents {
+  "actor:spawn":   { actor: Actor; scene: string };
+  "actor:destroy": { actor: Actor };
+  "scene:change":  { from: string; to: string };
+  "input:key":     { key: string; pressed: boolean };
+}
+</code></pre>
+  <p>Using conditional types and <code>infer</code>, build three utility types:</p>
+  <ol>
+    <li><code>PayloadOf&lt;K extends keyof GameEvents&gt;</code> that returns the payload type for a given event key.</li>
+    <li>
+      <code>EventsWithKey&lt;K extends string&gt;</code> that filters <code>keyof GameEvents</code> to only the keys that contain the
+      substring <code>K</code> (use template literal types and distributive conditionals).
+    </li>
+    <li>
+      <code>Handler&lt;K extends keyof GameEvents&gt;</code> that resolves to a function type
+      <code>(payload: PayloadOf&lt;K&gt;) => void</code>.
+    </li>
+  </ol>
+  <p>
+    Write a generic <code>on&lt;K extends keyof GameEvents&gt;</code> function that accepts an event key and a
+    <code>Handler&lt;K&gt;</code>, and confirm that TypeScript rejects payloads that do not match the event.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span
+        >Conditional types use <code>T extends U ? X : Y</code> to make a type resolve differently based on what <code>T</code> looks
+        like at compile time.</span
+      >
+    </li>
+    <li>
+      <span
+        >The <code>infer</code> keyword lets you capture and name a piece of a matched type inside the true branch, enabling patterns
+        like <code>Awaited</code>, <code>ReturnType</code>, and <code>Parameters</code>.</span
+      >
+    </li>
+    <li>
+      <span
+        >When a bare type parameter is passed a union, TypeScript distributes the conditional over each member automatically; wrapping
+        the parameter in a tuple like <code>[T]</code> suppresses this behavior.</span
+      >
+    </li>
+    <li>
+      <span
+        >Built-in utility types including <code>Extract</code>, <code>Exclude</code>, <code>ReturnType</code>, and
+        <code>Parameters</code> are all written with conditional types and <code>infer</code> using the same patterns covered
+        here.</span
+      >
+    </li>
+    <li>
+      <span
+        >In ExcaliburJS code, conditional types shine when normalizing mixed asset inputs, inferring component data shapes from
+        registry keys, and unwrapping async loader return values.</span
+      >
+    </li>
   </ul>
 </section>

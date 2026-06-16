@@ -376,13 +376,7 @@ export const CURRICULUM = {
               duration: "15 min",
               difficulty: "advanced",
             },
-            {
-              id: "generic-utility-types",
-              title: "Generic Utility Types",
-              file: "TypeScript Track/Advanced - Generics/generic-utility-types.html",
-              duration: "15 min",
-              difficulty: "advanced",
-            },
+
             {
               id: "conditional-inferred-types",
               title: "Conditional Inferred Types",
@@ -393,7 +387,7 @@ export const CURRICULUM = {
           ],
         },
         {
-          id: "utility types",
+          id: "utility-types",
           title: "Utility Types",
           level: "Advanced",
           lessons: [
@@ -402,7 +396,14 @@ export const CURRICULUM = {
               title: "Index Signatures & Records",
               file: "TypeScript Track/Advanced - Utility Types/index-signatures-records.html",
               duration: "15 min",
-              difficulty: "intermediate",
+              difficulty: "advanced",
+            },
+            {
+              id: "generic-utility-types",
+              title: "Generic Utility Types",
+              file: "TypeScript Track/Advanced - Utility Types/generic-utility-types.html",
+              duration: "15 min",
+              difficulty: "advanced",
             },
           ],
         },

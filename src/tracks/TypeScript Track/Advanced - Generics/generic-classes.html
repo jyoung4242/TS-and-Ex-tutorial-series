@@ -1,25 +1,486 @@
-<!-- Stub: UNDER CONSTRUCTION — full content coming soon -->
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Define a generic class with one or more type parameters and explain what problem they solve</li>
+    <li>
+      Apply constraints from the previous lesson directly to class-level type parameters to unlock property access inside the class
+      body
+    </li>
+    <li>Write generic classes that model real game objects in ExcaliburJS, such as typed component stores and object pools</li>
+    <li>Identify when a plain typed class is sufficient and when a generic class is the right tool</li>
+    <li>Combine generic classes with generic methods to produce flexible, reusable data structures</li>
   </ul>
 </section>
 
-<h2>UNDER CONSTRUCTION</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you are building a game inventory system. You need a container that can hold swords, potions, or armor, but you want
+  TypeScript to stop you from accidentally putting a
+  <code>Potion</code> into a slot reserved for <code>Weapon</code> objects. You could write a separate class for each item type, but
+  that means copy-pasting the same logic dozens of times. Generic classes solve this: you write the container once, and TypeScript
+  fills in the item type at the call site.
+</p>
+
+<p>
+  Generic classes extend the same idea as generic functions, but they attach the type parameter to the whole class rather than to a
+  single method. Every property and method inside the class can then reference that type, giving you end-to-end type safety across the
+  entire object lifetime.
+</p>
+
+<p>
+  In ExcaliburJS projects you will reach for generic classes constantly: typed component stores, object pools, event queues, and
+  resource caches are all natural fits. By the end of this lesson you will be able to write all of them with confidence.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>What Is a Generic Class?</h2>
+
+<p>
+  A generic class declares one or more <em>type parameters</em> in angle brackets right after the class name. Those parameters act like
+  placeholders that get replaced with a concrete type when the class is instantiated. The syntax looks like this:
+</p>
+
+<pre><code class="language-typescript">class Box&lt;T&gt; {
+  private value: T;
+
+  constructor(value: T) {
+    this.value = value;
+  }
+
+  getValue(): T {
+    return this.value;
+  }
+}
+
+const numberBox = new Box&lt;number&gt;(42);
+const nameBox   = new Box&lt;string&gt;("Hero");
+
+console.log(numberBox.getValue()); // 42
+console.log(nameBox.getValue());   // "Hero"
+</code></pre>
+
+<p>
+  <code>T</code> is just a name. By convention, single-letter names like <code>T</code> (type), <code>K</code> (key),
+  <code>V</code> (value), and <code>E</code> (element) are common, but you can use any valid identifier. Descriptive names like
+  <code>TItem</code> or <code>TPayload</code> help when there are multiple parameters.
+</p>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Note</div>
+    <p>
+      TypeScript can often infer the type parameter from the constructor argument, so
+      <code>new Box(42)</code> is equivalent to <code>new Box&lt;number&gt;(42)</code>. Explicit annotation is still a good habit when
+      the intent might not be obvious.
+    </p>
   </div>
 </div>
 
+<h2>Multiple Type Parameters</h2>
+
+<p>
+  A class can declare more than one type parameter, separated by commas. A common use case is a key-value store where both the key type
+  and the value type need to be flexible.
+</p>
+
+<pre><code class="language-typescript">class GameRegistry&lt;K, V&gt; {
+  private entries = new Map&lt;K, V&gt;();
+
+  register(key: K, value: V): void {
+    this.entries.set(key, value);
+  }
+
+  lookup(key: K): V | undefined {
+    return this.entries.get(key);
+  }
+
+  get size(): number {
+    return this.entries.size;
+  }
+}
+
+// Keys are strings, values are numbers (scores)
+const scoreBoard = new GameRegistry&lt;string, number&gt;();
+scoreBoard.register("Player1", 1500);
+scoreBoard.register("Player2", 980);
+
+console.log(scoreBoard.lookup("Player1")); // 1500
+</code></pre>
+
+<h2>Constraining Type Parameters with <code>extends</code></h2>
+
+<p>
+  Unconstrained type parameters are maximally flexible, but sometimes you need to guarantee that the type has certain properties. You
+  add a constraint with the <code>extends</code> keyword. The constraint is a type (or interface) that any supplied type must satisfy.
+</p>
+
+<pre><code class="language-typescript">interface HasName {
+  name: string;
+}
+
+class EntityStore&lt;T extends HasName&gt; {
+  private items: T[] = [];
+
+  add(item: T): void {
+    this.items.push(item);
+  }
+
+  findByName(name: string): T | undefined {
+    return this.items.find(item =&gt; item.name === name);
+  }
+
+  getAll(): T[] {
+    return [...this.items];
+  }
+}
+
+interface Enemy {
+  name: string;
+  health: number;
+}
+
+const enemies = new EntityStore&lt;Enemy&gt;();
+enemies.add({ name: "Goblin", health: 30 });
+enemies.add({ name: "Dragon", health: 500 });
+
+const dragon = enemies.findByName("Dragon");
+console.log(dragon?.health); // 500
+</code></pre>
+
+<p>
+  Without the constraint, TypeScript would not let you access <code>item.name</code> inside <code>findByName</code> because it would
+  not know that <code>T</code> has a <code>name</code>
+  property. The constraint makes that property available throughout the class body.
+</p>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      Prefer constraining to an <em>interface</em> rather than a concrete class when possible. This keeps the generic class open to any
+      object that has the required shape, not just instances of one particular class hierarchy.
+    </p>
+  </div>
+</div>
+
+<h2>Generic Methods Inside Generic Classes</h2>
+
+<p>
+  Methods on a generic class automatically have access to the class-level type parameter. They can also introduce
+  <em>their own</em> additional type parameters for operations that need extra flexibility. Keep the distinction clear: class-level
+  <code>T</code> describes the data the class stores; method-level parameters describe one-off transformations.
+</p>
+
+<pre><code class="language-typescript">class DataPipeline&lt;T&gt; {
+  private data: T[] = [];
+
+  push(item: T): this {
+    this.data.push(item);
+    return this;
+  }
+
+  // Method-level type parameter R is independent of class-level T
+  map&lt;R&gt;(transform: (item: T) =&gt; R): DataPipeline&lt;R&gt; {
+    const next = new DataPipeline&lt;R&gt;();
+    this.data.forEach(item =&gt; next.push(transform(item)));
+    return next;
+  }
+
+  toArray(): T[] {
+    return [...this.data];
+  }
+}
+
+const scores = new DataPipeline&lt;number&gt;()
+  .push(100)
+  .push(250)
+  .push(75);
+
+const labels = scores.map(n =&gt; `Score: ${n}`);
+console.log(labels.toArray()); // ["Score: 100", "Score: 250", "Score: 75"]
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      Static members of a class cannot reference the class-level type parameter because static members belong to the class itself, not
+      to any particular instance. If you need a generic static factory method, give that method its own type parameter.
+    </p>
+  </div>
+</div>
+
+<pre><code class="language-typescript">class Pool&lt;T&gt; {
+  private items: T[] = [];
+
+  // ERROR: static method cannot use class-level T
+  // static create(item: T): Pool&lt;T&gt; { ... }
+
+  // Correct: static method declares its own parameter
+  static create&lt;U&gt;(item: U): Pool&lt;U&gt; {
+    const pool = new Pool&lt;U&gt;();
+    pool.items.push(item);
+    return pool;
+  }
+
+  checkout(): T | undefined {
+    return this.items.pop();
+  }
+
+  checkin(item: T): void {
+    this.items.push(item);
+  }
+}
+</code></pre>
+
+<h2>A Real Pattern: Generic Object Pool in ExcaliburJS</h2>
+
+<p>
+  Object pooling is a core performance technique in game development. Rather than creating and destroying objects every frame, you
+  reuse them. A generic pool class lets you pool any game object type with a single, well-tested implementation.
+</p>
+
+<pre><code class="language-typescript">import { Actor } from "excalibur";
+
+interface Poolable {
+  reset(): void;
+  active: boolean;
+}
+
+class ObjectPool&lt;T extends Poolable&gt; {
+  private available: T[] = [];
+  private inUse: Set&lt;T&gt; = new Set();
+  private readonly factory: () =&gt; T;
+
+  constructor(factory: () =&gt; T, initialSize = 10) {
+    this.factory = factory;
+    for (let i = 0; i &lt; initialSize; i++) {
+      this.available.push(factory());
+    }
+  }
+
+  acquire(): T {
+    const item = this.available.pop() ?? this.factory();
+    item.active = true;
+    this.inUse.add(item);
+    return item;
+  }
+
+  release(item: T): void {
+    if (!this.inUse.has(item)) return;
+    item.active = false;
+    item.reset();
+    this.inUse.delete(item);
+    this.available.push(item);
+  }
+
+  get activeCount(): number {
+    return this.inUse.size;
+  }
+}
+
+// Usage with a bullet actor
+class Bullet extends Actor implements Poolable {
+  active = false;
+
+  reset(): void {
+    this.pos.setTo(0, 0);
+    this.vel.setTo(0, 0);
+    this.active = false;
+  }
+}
+
+const bulletPool = new ObjectPool&lt;Bullet&gt;(() =&gt; new Bullet(), 20);
+const bullet = bulletPool.acquire();
+// ... position and fire bullet ...
+bulletPool.release(bullet);
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      The constraint <code>T extends Poolable</code> guarantees that every item in the pool has a <code>reset()</code> method and an
+      <code>active</code> property. Without the constraint, the pool body could not safely call those members.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The playground below sets up a typed component store using a generic class. A
+  <code>ComponentStore&lt;T&gt;</code> holds any component type and lets you attach, retrieve, and remove components from entities by
+  numeric ID. Modify the component interface and watch TypeScript enforce the shape everywhere.
+</p>
+
+<excalibur-playground label="Try It: Generic Component Store" height="520">
+  <script type="text/plain" slot="code">
+    import { Engine, Actor, Color, Vector } from "excalibur";
+
+    // ----- Generic component store -----
+    interface Component {
+      type: string;
+    }
+
+    class ComponentStore<T extends Component> {
+      private store = new Map<number, T>();
+
+      attach(entityId: number, component: T): void {
+        this.store.set(entityId, component);
+      }
+
+      get(entityId: number): T | undefined {
+        return this.store.get(entityId);
+      }
+
+      remove(entityId: number): void {
+        this.store.delete(entityId);
+      }
+
+      getAll(): T[] {
+        return [...this.store.values()];
+      }
+    }
+
+    // ----- A concrete component -----
+    interface HealthComponent extends Component {
+      type: "health";
+      current: number;
+      max: number;
+    }
+
+    const healthStore = new ComponentStore<HealthComponent>();
+
+    // ----- Wire up a simple Excalibur scene -----
+    const game = new Engine({ width: 400, height: 300, backgroundColor: Color.fromHex("#1a1a2e") });
+
+    const player = new Actor({ x: 200, y: 150, width: 32, height: 32, color: Color.Green });
+    game.currentScene.add(player);
+
+    // Attach a health component to entity ID 1
+    healthStore.attach(1, { type: "health", current: 80, max: 100 });
+
+    player.on("postupdate", () => {
+      const hp = healthStore.get(1);
+      if (hp && hp.current > 0) {
+        hp.current -= 0.05; // drain health over time
+      }
+    });
+
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Typed Event Queue</div>
+  <div class="exercise__body">
+    <p>
+      Game engines rely on event queues to decouple systems. Your task is to create a generic
+      <code>EventQueue&lt;T&gt;</code> class that stores and dispatches typed events.
+    </p>
+    <ol>
+      <li>
+        Define an interface <code>GameEvent</code> with at minimum a <code>type: string</code> property and a
+        <code>timestamp: number</code> property.
+      </li>
+      <li>Create a generic class <code>EventQueue&lt;T extends GameEvent&gt;</code> with an internal array to hold pending events.</li>
+      <li>Add a <code>dispatch(event: T): void</code> method that pushes an event onto the queue.</li>
+      <li>
+        Add a <code>flush(handler: (event: T) =&gt; void): void</code> method that iterates through all pending events, calls the
+        handler for each, then clears the queue.
+      </li>
+      <li>
+        Instantiate the queue with a concrete event type of your choosing (e.g., a
+        <code>DamageEvent</code> with <code>amount: number</code> and <code>source: string</code>) and verify that TypeScript rejects
+        events of the wrong shape.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> The queue compiles with correct events and produces a type error when you try to dispatch an
+      event that does not extend <code>GameEvent</code>.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Typed Finite State Machine</div>
+  <p>
+    Extend the event queue pattern into a minimal generic finite state machine (FSM). Define a
+    <code>StateMachine&lt;TState extends string, TEvent extends GameEvent&gt;</code>
+    class that holds a current state, a map of transition rules keyed by
+    <code>[currentState, eventType]</code>, and a <code>send(event: TEvent): void</code> method that looks up and applies the correct
+    transition. The class should expose the current state as a typed property and allow listeners to subscribe to state changes. Model
+    a two-state enemy AI: <code>"patrol"</code> and <code>"chase"</code>, toggled by a <code>PlayerSpottedEvent</code> and a
+    <code>PlayerLostEvent</code>.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span
+        >A generic class declares type parameters after the class name; those parameters apply to every property and method in the
+        class body.</span
+      >
+    </li>
+    <li>
+      <span
+        >Use <code>extends</code> to constrain a type parameter so the class body can safely access specific properties or methods on
+        <code>T</code>.</span
+      >
+    </li>
+    <li>
+      <span
+        >Static members cannot reference class-level type parameters; give static factory methods their own independent type parameters
+        instead.</span
+      >
+    </li>
+    <li>
+      <span
+        >Methods inside a generic class can introduce additional type parameters for transformations that produce a different output
+        type, such as a <code>map</code> operation.</span
+      >
+    </li>
+    <li>
+      <span
+        >Object pools, component stores, event queues, and registries are all natural uses for generic classes in ExcaliburJS game
+        projects.</span
+      >
+    </li>
+    <li>
+      <span
+        >When a class only ever holds one fixed type, a plain typed class is simpler; reach for generics only when the type needs to
+        vary at the call site.</span
+      >
+    </li>
   </ul>
 </section>

@@ -1,0 +1,448 @@
+<!--
+  generic-utility-types.html
+  ===========================
+  Module: Generic Utility Types in TypeScript
+  Track: TypeScript Fundamentals
+  Lesson: Generic Arrays & Utility Types (Arrays module, lesson 6)
+
+  Registration snippet for curriculum-manifest.js:
+  {
+    id: "generic-utility-types",
+    title: "Generic Utility Types",
+    description: "Master TypeScript's built-in utility types -- Partial, Required, Readonly, Pick, Omit, and ReturnType -- and learn to compose them for real game development patterns in ExcaliburJS.",
+    src: "lessons/generic-utility-types.html",
+    duration: 30
+  }
+-->
+
+<!-- LEARNING OBJECTIVES -->
+<section class="lesson-objectives">
+  <div class="lesson-objectives__title">🎯 Learning Objectives</div>
+  <ul class="lesson-objectives__list">
+    <li>Explain what a generic utility type is and why TypeScript ships with them built-in</li>
+    <li>
+      Apply <code>Partial</code>, <code>Required</code>, <code>Readonly</code>, <code>Pick</code>, and <code>Omit</code> to transform
+      existing types without duplicating them
+    </li>
+    <li>Use <code>ReturnType</code> to extract inferred types from functions without duplicating definitions</li>
+    <li>Compose two or more utility types together to express complex constraints in a single, readable type alias</li>
+    <li>Recognize common ExcaliburJS patterns where utility types reduce boilerplate and prevent bugs</li>
+  </ul>
+</section>
+
+<!-- INTRODUCTION -->
+<h2>Introduction</h2>
+
+<p>
+  Imagine you have a <code>PlayerConfig</code> type with a dozen properties: position, speed, health, sprite sheet, animations, and so
+  on. Now you need a second type for a save-game patch object where every property is optional. And a third type for a read-only
+  snapshot you pass to a renderer. Do you copy-paste the original and add <code>?</code> everywhere? That approach works until the
+  original changes and you forget to update the copies.
+</p>
+
+<p>
+  TypeScript ships with a library of <strong>generic utility types</strong> that solve exactly this problem. They are generic because
+  they accept a type as an argument, and they are utility types because their only job is to transform that input type into a new one.
+  No runtime code, no imports, no installation: just expressive, maintainable type-level logic.
+</p>
+
+<p>
+  By the end of this lesson you will reach for these utilities the way you reach for
+  <code>Array.map</code>: automatically, because you know what they do and trust them to do it cleanly.
+</p>
+
+<!-- SECTION 1: WHAT MAKES A TYPE "GENERIC"? -->
+<h2>What Makes a Type Generic?</h2>
+
+<p>
+  A generic type is a type that takes a <em>type parameter</em> the same way a function takes a value parameter. The angle-bracket
+  syntax <code>&lt;T&gt;</code> is the signal.
+</p>
+
+<pre><code class="language-typescript">// A generic identity type -- takes any type T and returns it unchanged
+type Identity&lt;T&gt; = T;
+
+type MyString = Identity&lt;string&gt;; // string
+type MyNumber = Identity&lt;number&gt;; // number
+</code></pre>
+
+<p>
+  TypeScript's built-in utility types follow the same pattern. They accept one or more type parameters and produce a derived type. You
+  never have to implement them yourself -- they live in TypeScript's standard library and are always in scope.
+</p>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      Utility types operate purely at compile time. They have zero runtime cost and produce zero JavaScript output. They exist only to
+      help the type checker reason about your code.
+    </p>
+  </div>
+</div>
+
+<!-- SECTION 2: PARTIAL AND REQUIRED -->
+<h2><code>Partial&lt;T&gt;</code> and <code>Required&lt;T&gt;</code></h2>
+
+<p>
+  <code>Partial&lt;T&gt;</code> takes every property of <code>T</code> and makes it optional. <code>Required&lt;T&gt;</code> does the
+  opposite: it strips the <code>?</code> from every property and forces them all to be present.
+</p>
+
+<pre><code class="language-typescript">interface ActorConfig {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color?: string;
+}
+
+// All properties become optional -- good for patch/update objects
+type ActorPatch = Partial&lt;ActorConfig&gt;;
+// { x?: number; y?: number; width?: number; height?: number; color?: string }
+
+// All properties become required -- color is no longer optional
+type StrictActorConfig = Required&lt;ActorConfig&gt;;
+// { x: number; y: number; width: number; height: number; color: string }
+
+function updateActor(id: string, patch: ActorPatch): void {
+  // caller only needs to supply the fields that changed
+}
+
+updateActor("player", { x: 100 }); // valid -- only x is changing
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Tip</div>
+    <p>
+      <code>Partial</code> is ideal for update functions and config merging. If you find yourself writing the same interface twice with
+      all the same fields but every one marked <code>?</code>, reach for <code>Partial</code> instead.
+    </p>
+  </div>
+</div>
+
+<!-- SECTION 3: READONLY -->
+<h2><code>Readonly&lt;T&gt;</code></h2>
+
+<p>
+  <code>Readonly&lt;T&gt;</code> marks every property of <code>T</code> as <code>readonly</code>, preventing reassignment after
+  construction. This is useful for snapshot objects, immutable configs, or state that should never be mutated once created.
+</p>
+
+<pre><code class="language-typescript">interface GameState {
+  score: number;
+  level: number;
+  lives: number;
+}
+
+type FrozenState = Readonly&lt;GameState&gt;;
+
+const snapshot: FrozenState = { score: 1200, level: 3, lives: 2 };
+
+// TypeScript error: Cannot assign to 'score' because it is a read-only property.
+snapshot.score = 9999;
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Warning</div>
+    <p>
+      <code>Readonly&lt;T&gt;</code> is <strong>shallow</strong>. If a property is itself an object, the nested object's properties are
+      still mutable. For deep immutability you need a recursive type or a library like <code>ts-essentials</code>.
+    </p>
+  </div>
+</div>
+
+<!-- SECTION 4: PICK AND OMIT -->
+<h2><code>Pick&lt;T, K&gt;</code> and <code>Omit&lt;T, K&gt;</code></h2>
+
+<p>
+  Sometimes you need a subset of an existing type. <code>Pick</code> lets you select the properties you want by name.
+  <code>Omit</code> lets you exclude the properties you <em>do not</em> want, keeping everything else.
+</p>
+
+<pre><code class="language-typescript">interface Enemy {
+  id: string;
+  name: string;
+  health: number;
+  damage: number;
+  spriteSheet: string;
+  aiPattern: string;
+}
+
+// Keep only the fields the HUD needs to display
+type EnemyHUDData = Pick&lt;Enemy, "name" | "health"&gt;;
+// { name: string; health: number }
+
+// Strip internal fields before sending to a save file
+type SerializableEnemy = Omit&lt;Enemy, "spriteSheet" | "aiPattern"&gt;;
+// { id: string; name: string; health: number; damage: number }
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember</div>
+    <p>
+      <code>Pick</code> is additive: you name what you want. <code>Omit</code> is subtractive: you name what you do not want. When the
+      list of fields to keep is shorter, use <code>Pick</code>. When the list of fields to drop is shorter, use <code>Omit</code>.
+    </p>
+  </div>
+</div>
+
+<h3>Composing Pick and Partial Together</h3>
+
+<p>Utility types are composable. Wrap one inside another to express layered constraints without writing a new interface.</p>
+
+<pre><code class="language-typescript">// A patch type that only touches display-related fields
+type EnemyDisplayPatch = Partial&lt;Pick&lt;Enemy, "name" | "health" | "spriteSheet"&gt;&gt;;
+// { name?: string; health?: number; spriteSheet?: string }
+
+function patchEnemyDisplay(id: string, changes: EnemyDisplayPatch): void {
+  // safe: only display fields can be modified, and all are optional
+}
+</code></pre>
+
+<!-- SECTION 5: RETURNTYPE -->
+<h2><code>ReturnType&lt;T&gt;</code></h2>
+
+<p>
+  <code>ReturnType&lt;T&gt;</code> extracts the return type of a function type. This is valuable when you need to reference what a
+  function produces without importing or duplicating its return type definition.
+</p>
+
+<pre><code class="language-typescript">function createPlayer(name: string, startX: number, startY: number) {
+  return {
+    name,
+    position: { x: startX, y: startY },
+    health: 100,
+    score: 0,
+  };
+}
+
+// Infer the shape from the function itself -- no manual interface needed
+type Player = ReturnType&lt;typeof createPlayer&gt;;
+// { name: string; position: { x: number; y: number }; health: number; score: number }
+
+function displayPlayerInfo(player: Player): void {
+  console.log(`${player.name} at (${player.position.x}, ${player.position.y})`);
+}
+</code></pre>
+
+<div class="callout callout--note">
+  <span class="callout__icon">ℹ</span>
+  <div class="callout__body">
+    <div class="callout__title">Note</div>
+    <p>
+      Notice the <code>typeof</code> keyword: <code>ReturnType</code> takes a <em>type</em>, not a value.
+      <code>typeof createPlayer</code> converts the value (the function) into its type so <code>ReturnType</code> can inspect it.
+    </p>
+  </div>
+</div>
+
+<!-- SECTION 7: QUICK REFERENCE TABLE -->
+<h2>Quick Reference</h2>
+
+<p>Here is the full set of utility types covered in this lesson at a glance:</p>
+
+<div class="table-wrapper">
+  <table class="reference-table">
+    <thead>
+      <tr>
+        <th>Utility Type</th>
+        <th>What It Does</th>
+        <th>Common Use Case</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>Partial&lt;T&gt;</code></td>
+        <td>Makes all properties optional</td>
+        <td>Patch / update objects</td>
+      </tr>
+      <tr>
+        <td><code>Required&lt;T&gt;</code></td>
+        <td>Makes all properties required</td>
+        <td>Strict config validation</td>
+      </tr>
+      <tr>
+        <td><code>Readonly&lt;T&gt;</code></td>
+        <td>Prevents all property reassignment</td>
+        <td>Immutable snapshots, frozen state</td>
+      </tr>
+      <tr>
+        <td><code>Pick&lt;T, K&gt;</code></td>
+        <td>Keeps only the listed properties</td>
+        <td>View models, HUD data</td>
+      </tr>
+      <tr>
+        <td><code>Omit&lt;T, K&gt;</code></td>
+        <td>Removes the listed properties</td>
+        <td>Serialization, stripping internals</td>
+      </tr>
+      <tr>
+        <td><code>ReturnType&lt;T&gt;</code></td>
+        <td>Extracts a function's return type</td>
+        <td>Inferring factory output shapes</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- EXCALIBUR PLAYGROUND -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The code below models a small ExcaliburJS scene setup. It uses <code>Partial</code> for an actor update function and
+  <code>Readonly</code> for a frozen initial state. Read through it, then experiment: try reassigning a property on
+  <code>INITIAL_STATE</code> or passing an unknown field to <code>applyPatch</code> to see the type errors TypeScript catches.
+</p>
+
+<excalibur-playground label="Try It: Generic Utility Types in a Game Scene" height="520">
+  <script type="text/plain" slot="code">
+    import * as ex from "excalibur";
+
+    // --- Types ---
+
+    interface ActorConfig {
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      color: ex.Color;
+    }
+
+    // --- Utility type aliases ---
+
+    type ActorPatch   = Partial&lt;ActorConfig&gt;;
+    type FrozenConfig = Readonly&lt;ActorConfig&gt;;
+
+    // --- Constants using utility types ---
+
+    const INITIAL_STATE: FrozenConfig = {
+      x: 200, y: 200, width: 40, height: 40, color: ex.Color.Blue,
+    };
+
+    // --- Update function using Partial ---
+
+    function applyPatch(base: ActorConfig, patch: ActorPatch): ActorConfig {
+      return { ...base, ...patch };
+    }
+
+    // --- Scene ---
+
+    const game = new ex.Engine({ width: 600, height: 400 });
+
+    const playerConfig = applyPatch({ ...INITIAL_STATE }, { x: 100, color: ex.Color.Green });
+
+    const player = new ex.Actor({
+      x: playerConfig.x,
+      y: playerConfig.y,
+      width: playerConfig.width,
+      height: playerConfig.height,
+      color: playerConfig.color,
+    });
+
+    game.add(player);
+    game.start();
+  </script>
+</excalibur-playground>
+
+<!-- EXERCISE -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Typed Item Registry</div>
+  <div class="exercise__body">
+    <p>
+      You are designing an inventory system for a top-down RPG. Follow the steps below using only the utility types covered in this
+      lesson.
+    </p>
+    <ol>
+      <li>
+        Define an <code>Item</code> interface with at least these properties: <code>id: string</code>, <code>name: string</code>,
+        <code>weight: number</code>, <code>stackable: boolean</code>, and <code>iconPath: string</code>.
+      </li>
+      <li>
+        Create a <code>PickedUpItem</code> type using <code>Omit</code> that strips <code>iconPath</code> from <code>Item</code> (the
+        HUD does not need it at pickup time).
+      </li>
+      <li>
+        Create an <code>ItemPatch</code> type using <code>Partial</code> over <code>Item</code> and write an
+        <code>updateItem</code> function that accepts an id and a patch, and returns a merged <code>Item</code>.
+      </li>
+      <li>
+        Define an <code>ItemCategory</code> union type with at least three string literal values, then declare a
+        <code>categoryDescriptions</code> constant typed as <code>Record&lt;ItemCategory, string&gt;</code> with a description for each
+        category.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript accepts all four constructs without errors. Attempting to add an unknown category
+      key to <code>categoryDescriptions</code> or passing an unknown field to <code>updateItem</code> should produce a compile-time
+      error.
+    </p>
+  </div>
+</section>
+
+<!-- CHALLENGE -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Compose Your Way to a Save File Type</div>
+  <p>
+    Given a <code>FullGameState</code> interface that includes both serializable data (score, level, inventory) and runtime-only data
+    (activeScene, renderContext, audioContext), use a combination of <code>Omit</code>, <code>Readonly</code>, and
+    <code>ReturnType</code> to produce a <code>SaveFile</code> type that strips the runtime fields, makes all remaining fields
+    read-only, and is derived from a <code>createSaveFile</code> factory function. No manual type annotation on the final
+    <code>SaveFile</code> alias is allowed: it must be fully inferred.
+  </p>
+</section>
+
+<!-- SUMMARY -->
+<section class="lesson-summary">
+  <div class="lesson-summary__title">Summary</div>
+  <ul class="lesson-summary__points">
+    <li>
+      <span
+        >Generic utility types accept a type parameter and return a transformed type -- they are type-level functions built into
+        TypeScript with zero runtime cost.</span
+      >
+    </li>
+    <li>
+      <span
+        ><code>Partial</code> and <code>Required</code> toggle optionality across all properties at once, making them ideal for update
+        and validation patterns.</span
+      >
+    </li>
+    <li>
+      <span
+        ><code>Readonly</code> enforces immutability at the property level, though it is shallow and does not protect nested
+        objects.</span
+      >
+    </li>
+    <li>
+      <span><code>Pick</code> and <code>Omit</code> carve subsets from an existing type: Pick is additive, Omit is subtractive.</span>
+    </li>
+    <li>
+      <span
+        ><code>Record&lt;K, V&gt;</code> builds an exhaustive typed dictionary; when K is a string literal union, TypeScript ensures no
+        key is missing.</span
+      >
+    </li>
+    <li>
+      <span
+        ><code>ReturnType&lt;typeof fn&gt;</code> extracts a function's inferred return shape, removing the need to duplicate type
+        definitions for factory outputs.</span
+      >
+    </li>
+    <li>
+      <span
+        >Utility types compose: wrapping one inside another (like <code>Partial&lt;Pick&lt;T, K&gt;&gt;</code>) lets you express
+        layered constraints in a single, readable alias.</span
+      >
+    </li>
+  </ul>
+</section>

@@ -1,25 +1,329 @@
-<!-- Stub: UNDER CONSTRUCTION — full content coming soon -->
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Explain what generics are and why they exist in TypeScript</li>
+    <li>Write generic functions using type parameters like <code>&lt;T&gt;</code></li>
+    <li>Recognize when to reach for a generic versus a union type or <code>any</code></li>
+    <li>Apply generics in an ExcaliburJS context to write reusable, type-safe game utilities</li>
   </ul>
 </section>
 
-<h2>UNDER CONSTRUCTION</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
 
-<div class="callout callout--note">
-  <span class="callout__icon">ℹ</span>
+<p>
+  Imagine writing a function that picks the last item from an array. For a number array you write one version. For a string array you
+  write another. For an <code>Actor[]</code> you write a third. The logic is identical every time, but TypeScript does not know that,
+  so you end up copy-pasting. Generics are the escape hatch: write the function once, and let the caller's types flow through it
+  automatically.
+</p>
+
+<p>
+  Generics are TypeScript's way of saying "I do not know the exact type yet, but whatever it is, I will remember it and keep things
+  consistent." They show up everywhere in the standard library (<code>Array&lt;T&gt;</code>,
+  <code>Promise&lt;T&gt;</code>, <code>Map&lt;K, V&gt;</code>) and throughout ExcaliburJS itself. Understanding them unlocks a large
+  slice of real-world TypeScript code that would otherwise look like alphabet soup.
+</p>
+
+<p>
+  This lesson focuses on the core idea: type parameters, inference, and when generics are the right tool. You will not need to memorize
+  syntax all at once. Work through the examples slowly, and the pattern will click.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     CORE CONTENT
+     ═══════════════════════════════════════════════ -->
+<h2>The Problem Generics Solve</h2>
+
+<p>Here is the copy-paste trap in action. Without generics, you might write this:</p>
+
+<pre><code class="language-typescript">
+function lastNumber(arr: number[]): number {
+  return arr[arr.length - 1];
+}
+
+function lastString(arr: string[]): string {
+  return arr[arr.length - 1];
+}
+</code></pre>
+
+<p>
+  Same body, different types. The alternative without generics is to reach for
+  <code>any</code>:
+</p>
+
+<pre><code class="language-typescript">
+function last(arr: any[]): any {
+  return arr[arr.length - 1];
+}
+
+const item = last([1, 2, 3]);
+// item is typed as `any` — TypeScript has lost track of it
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Warning: <code>any</code> silences the type checker</div>
+    <p>
+      Using <code>any</code> makes the error go away, but TypeScript stops checking everything downstream. You lose autocomplete, catch
+      fewer bugs, and spread <code>any</code> through your codebase like a leak. Generics give you the flexibility of
+      <code>any</code> without the cost.
+    </p>
   </div>
 </div>
 
+<h2>Your First Generic Function</h2>
+
+<p>
+  A generic function introduces a <strong>type parameter</strong> in angle brackets right after the function name. By convention,
+  single uppercase letters like <code>T</code> are used, though any name works.
+</p>
+
+<pre><code class="language-typescript">
+function last&lt;T&gt;(arr: T[]): T {
+  return arr[arr.length - 1];
+}
+
+const num = last([10, 20, 30]);     // num: number
+const str = last(["a", "b", "c"]); // str: string
+</code></pre>
+
+<p>
+  Read <code>&lt;T&gt;</code> as "for some type T." When you call <code>last([10, 20, 30])</code>, TypeScript infers that
+  <code>T</code> is <code>number</code> and the return type becomes <code>number</code>
+  automatically. Nothing to annotate at the call site.
+</p>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Type inference at call sites</div>
+    <p>
+      You rarely need to write the type argument explicitly. TypeScript infers it from the arguments. Writing
+      <code>last&lt;number&gt;([10, 20, 30])</code> is valid, but <code>last([10, 20, 30])</code> is cleaner and equivalent.
+    </p>
+  </div>
+</div>
+
+<h2>Multiple Type Parameters</h2>
+
+<p>A function can carry more than one type parameter. A common example is pairing two values of potentially different types:</p>
+
+<pre><code class="language-typescript">
+function pair&lt;A, B&gt;(first: A, second: B): [A, B] {
+  return [first, second];
+}
+
+const result = pair("score", 9500);
+// result: [string, number]
+</code></pre>
+
+<p>In game code this pattern shows up when you want to bundle an entity with some derived data without losing either type:</p>
+
+<pre><code class="language-typescript">
+import { Actor } from "excalibur";
+
+function tagWith&lt;E, M&gt;(entity: E, metadata: M): { entity: E; meta: M } {
+  return { entity, meta: metadata };
+}
+
+const actor = new Actor({ name: "Player" });
+const tagged = tagWith(actor, { spawnTime: Date.now() });
+// tagged.entity: Actor
+// tagged.meta: { spawnTime: number }
+</code></pre>
+
+<h2>Generics vs. Union Types</h2>
+
+<p>
+  A common question: when should you use a generic instead of a union? The rule of thumb is about <em>relationship</em>. If the input
+  type and output type need to be the same, use a generic. If they can be independent, a union is fine.
+</p>
+
+<pre><code class="language-typescript">
+// Union: input and output are loosely related
+function describe(value: string | number): string {
+  return String(value);
+}
+
+// Generic: output type mirrors input type exactly
+function identity&lt;T&gt;(value: T): T {
+  return value;
+}
+
+const n = identity(42);        // n: number (not string | number)
+const s = identity("hello");   // s: string
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Remember: generics preserve the specific type</div>
+    <p>
+      If you need the caller to get back the same type they put in (not a widened union), that is the signal to reach for a generic.
+      Unions tell TypeScript "one of these." Generics tell TypeScript "the same one throughout."
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The code below defines a generic <code>pickRandom</code> function and uses it to randomly select enemy types in an Excalibur scene.
+  Notice how TypeScript infers the return type from the array you pass in, with no extra annotations needed at the call site.
+</p>
+
+<excalibur-playground label="Try It: Generic Utilities in a Game Scene" height="500">
+  <script type="text/plain" slot="code">
+    import {
+      Engine,
+      Actor,
+      Color,
+      Vector,
+      DisplayMode,
+      Scene,
+      Label,
+      Font,
+      TextAlign,
+    } from "excalibur";
+
+    // --- Generic utility: pick a random element from any array ---
+    function pickRandom&lt;T&gt;(items: T[]): T {
+      const index = Math.floor(Math.random() * items.length);
+      return items[index];
+    }
+
+    // --- Game setup ---
+    const game = new Engine({
+      width: 600,
+      height: 400,
+      displayMode: DisplayMode.FitScreen,
+      backgroundColor: Color.fromHex("#1a1a2e"),
+    });
+
+    const colors = [Color.Red, Color.Green, Color.Cyan, Color.Yellow, Color.Violet];
+    const sizes = [16, 24, 32, 40];
+    const labels = ["Goblin", "Slime", "Bat", "Golem"];
+
+    const scene = new Scene();
+
+    for (let i = 0; i &lt; 6; i++) {
+      const color = pickRandom(colors);   // inferred: Color
+      const size  = pickRandom(sizes);    // inferred: number
+      const label = pickRandom(labels);   // inferred: string
+
+      const enemy = new Actor({
+        pos: new Vector(80 + i * 85, 120 + Math.floor(Math.random() * 160)),
+        width: size,
+        height: size,
+        color,
+      });
+
+      const tag = new Label({
+        text: label,
+        pos: new Vector(0, -size / 2 - 10),
+        font: new Font({ size: 11, color: Color.White, textAlign: TextAlign.Center }),
+      });
+
+      enemy.addChild(tag);
+      scene.add(enemy);
+    }
+
+    game.addScene("main", scene);
+    game.goToScene("main");
+    game.start();
+  </script>
+</excalibur-playground>
+
+<p>
+  Try changing the arrays passed to <code>pickRandom</code> or adding a new color. Notice that if you pass a mixed array like
+  <code>["red", 42]</code>, TypeScript infers <code>T</code> as <code>string | number</code> and the return type widens accordingly.
+</p>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Write a Generic Stack</div>
+  <div class="exercise__body">
+    <p>
+      A stack is a last-in, first-out collection. Implement a generic
+      <code>Stack&lt;T&gt;</code> class with three methods.
+    </p>
+    <ol>
+      <li>
+        Define a class <code>Stack&lt;T&gt;</code> with a private <code>items: T[]</code> property initialized to an empty array.
+      </li>
+      <li>Add a <code>push(item: T): void</code> method that appends to <code>items</code>.</li>
+      <li>Add a <code>pop(): T | undefined</code> method that removes and returns the last item.</li>
+      <li>Add a <code>peek(): T | undefined</code> method that returns the last item without removing it.</li>
+      <li>
+        Instantiate two stacks: a <code>Stack&lt;number&gt;</code> for tracking player scores, and a
+        <code>Stack&lt;string&gt;</code> for tracking visited room names. Push a few values onto each and log the result of
+        <code>pop()</code>.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript should infer the correct return type from each stack without any explicit
+      annotations at the call site. Pushing the wrong type (e.g. a string into the number stack) should produce a compile error.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Generic Pair Swap</div>
+  <p>
+    Write a generic function <code>swap&lt;A, B&gt;</code> that takes a tuple <code>[A, B]</code> and returns a new tuple
+    <code>[B, A]</code> with the elements reversed. Then write a second function <code>zipWith&lt;A, B, C&gt;</code> that takes two
+    arrays and a combiner function <code>(a: A, b: B) =&gt; C</code>, and returns a <code>C[]</code> where each element is the result
+    of calling the combiner on the pair at that index. Test <code>zipWith</code> by pairing an array of actor names with an array of
+    health values to produce an array of display strings like <code>"Goblin (40hp)"</code>.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span
+        >Generics let you write one function or class that works across many types without losing type information the way
+        <code>any</code> does.</span
+      >
+    </li>
+    <li>
+      <span
+        >A type parameter like <code>&lt;T&gt;</code> is a placeholder; TypeScript fills it in at each call site through
+        inference.</span
+      >
+    </li>
+    <li>
+      <span>Multiple type parameters (<code>&lt;A, B&gt;</code>) let you track independent types through the same function.</span>
+    </li>
+    <li>
+      <span>Reach for generics when input and output types need to be the same; use a union when they can vary independently.</span>
+    </li>
+    <li>
+      <span
+        >ExcaliburJS utilities like random pickers, pairing helpers, and generic stacks are natural targets for generic
+        functions.</span
+      >
+    </li>
   </ul>
 </section>

@@ -1,25 +1,501 @@
-<!-- Stub: UNDER CONSTRUCTION — full content coming soon -->
+<!--
+  generics-in-functions.html
+  ===========================
+  Track:  TypeScript Fundamentals
+  Module: Functions
+  Lesson: Generics in Functions
+-->
+
+<!-- ═══════════════════════════════════════════════
+     LEARNING OBJECTIVES
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-objectives">
   <div class="lesson-objectives__title">🎯 Learning Objectives</div>
   <ul class="lesson-objectives__list">
-    <li>This lesson is coming soon</li>
+    <li>Declare a generic function using a type parameter <code>&lt;T&gt;</code> and explain what the angle-bracket syntax means</li>
+    <li>Constrain a type parameter with <code>extends</code> so TypeScript can check the properties you use</li>
+    <li>Write generic utility functions that work across multiple value types without losing type safety</li>
+    <li>Apply generic functions to real ExcaliburJS patterns such as typed component lookups and entity factories</li>
+    <li>Recognise when a generic is the right tool versus a union type or function overload</li>
   </ul>
 </section>
 
-<h2>UNDER CONSTRUCTION</h2>
-<p>This lesson is under construction. Check back soon!</p>
+<!-- ═══════════════════════════════════════════════
+     INTRODUCTION
+     ═══════════════════════════════════════════════ -->
+<h2>Introduction</h2>
+
+<p>
+  You have already seen that TypeScript lets you annotate what goes <em>in</em> and what comes <em>out</em> of a function. But there is
+  a gap: what do you do when the relationship between input and output matters more than the specific type? If a function receives a
+  value and returns that same value, the caller should get back exactly what they passed in, not a vague <code>unknown</code> or a
+  union that forces them to narrow later.
+</p>
+
+<p>
+  Generic functions solve this. They let you write one function that works across many types while keeping the type connection intact.
+  You use them constantly in game code: fetching a component of a known type from an entity, creating a pool of homogeneous actors,
+  reading a config value from a typed store. Understanding generics is the step that turns "TypeScript kind of works" into "TypeScript
+  actually helps."
+</p>
 
 <div class="callout callout--note">
   <span class="callout__icon">ℹ</span>
   <div class="callout__body">
-    <div class="callout__title">Coming Soon</div>
-    <p>In the meantime, explore the lessons already available in the sidebar.</p>
+    <div class="callout__title">Where this fits</div>
+    <p>
+      This lesson comes at the end of the Functions module because generics build on everything before it: type annotations, default
+      parameters, overloads, arrow functions, rest parameters, and higher-order functions. If any of those feel shaky, revisit those
+      lessons before continuing.
+    </p>
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════
+     SECTION 1: THE PROBLEM GENERICS SOLVE
+     ═══════════════════════════════════════════════ -->
+<h2>The Problem Generics Solve</h2>
+
+<p>
+  Imagine you want a function that picks the first item from an array and returns it. Here are three ways you might try to write it
+  before knowing about generics:
+</p>
+
+<pre><code class="language-typescript">
+// Attempt 1: hardcoded type — only works for numbers
+function firstNumber(arr: number[]): number {
+  return arr[0];
+}
+
+// Attempt 2: any — throws away all type information
+function firstAny(arr: any[]): any {
+  return arr[0];
+}
+
+// Attempt 3: unknown — safer than any, but callers must narrow before using
+function firstUnknown(arr: unknown[]): unknown {
+  return arr[0];
+}
+</code></pre>
+
+<p>
+  None of these is ideal. Hardcoding a type means writing a duplicate function for every type you need. Using <code>any</code> or
+  <code>unknown</code> means the caller loses the information the compiler already had.
+</p>
+
+<p>
+  What you actually want is: "whatever type the array holds, return one of those." That is exactly what a type parameter expresses.
+</p>
+
+<pre><code class="language-typescript">
+// The generic version — works for any array, preserves the element type
+function first&lt;T&gt;(arr: T[]): T {
+  return arr[0];
+}
+
+const n = first([10, 20, 30]);       // TypeScript infers T = number; n is number
+const s = first(["a", "b", "c"]);   // T = string; s is string
+const actor = first(scene.actors);  // T = Actor; actor is Actor
+</code></pre>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Type inference at the call site</div>
+    <p>
+      You rarely need to pass the type argument explicitly (e.g. <code>first&lt;number&gt;([1, 2])</code>). TypeScript infers
+      <code>T</code> from the argument you pass. Explicit type arguments are useful when inference cannot do the job, which you will
+      see with constrained generics below.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2: SYNTAX WALKTHROUGH
+     ═══════════════════════════════════════════════ -->
+<h2>Anatomy of a Generic Function</h2>
+
+<p>
+  There are three moving parts: the type parameter list, the parameter types, and the return type. Each one can reference the type
+  parameter.
+</p>
+
+<pre><code class="language-typescript">
+//  (1)   (2)       (3)
+function wrap&lt;T&gt;(value: T): { wrapped: T } {
+  return { wrapped: value };
+}
+
+// (1) &lt;T&gt; declares the type parameter — T is a placeholder resolved at call time
+// (2) value: T — the argument must match whatever T turns out to be
+// (3) { wrapped: T } — the return type is tied to the same T
+</code></pre>
+
+<p>
+  Type parameter names are just identifiers. <code>T</code> is conventional for a single generic type. When a function has multiple
+  type parameters, names like <code>K</code> and <code>V</code> (key/value) or <code>TInput</code> and <code>TOutput</code> add
+  clarity.
+</p>
+
+<pre><code class="language-typescript">
+// Two type parameters: input type and output type are independent
+function transform&lt;TIn, TOut&gt;(value: TIn, fn: (v: TIn) =&gt; TOut): TOut {
+  return fn(value);
+}
+
+const length = transform("hello", (s) =&gt; s.length); // TIn = string, TOut = number
+</code></pre>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3: CONSTRAINTS WITH EXTENDS
+     ═══════════════════════════════════════════════ -->
+<h2>Constraining Type Parameters with <code>extends</code></h2>
+
+<p>
+  A bare <code>T</code> can be anything: <code>string</code>, <code>Actor</code>, <code>null</code>, a plain object, or a function.
+  That means inside the function body you cannot safely access any properties, because TypeScript cannot know they exist.
+</p>
+
+<p>
+  Use <code>extends</code> in the type parameter to tell TypeScript the minimum shape <code>T</code> must have. The function still
+  works for any type that satisfies the constraint, but now the compiler knows what properties are available.
+</p>
+
+<pre><code class="language-typescript">
+// Without a constraint — accessing .name is an error
+function printName&lt;T&gt;(item: T): void {
+  console.log(item.name); // Error: Property 'name' does not exist on type 'T'
+}
+
+// With a constraint — T must have at least a name property
+function printName&lt;T extends { name: string }&gt;(item: T): void {
+  console.log(item.name); // OK
+}
+
+// Works for any object that has a name string
+printName({ name: "Player", health: 100 }); // "Player"
+printName({ name: "Goblin", speed: 80 });   // "Goblin"
+</code></pre>
+
+<p>
+  In ExcaliburJS, this pattern appears whenever you work with entities and their components. Excalibur actors all share a common base,
+  so a generic constrained to <code>Actor</code> lets you write helpers that work on any actor subclass.
+</p>
+
+<pre><code class="language-typescript">
+import { Actor } from "excalibur";
+
+// A helper that logs diagnostic info for any actor subclass
+function logActorState&lt;T extends Actor&gt;(actor: T): void {
+  console.log(`${actor.name} pos=(${actor.pos.x}, ${actor.pos.y}) vel=(${actor.vel.x}, ${actor.vel.y})`);
+}
+
+class Player extends Actor { /* ... */ }
+class Enemy extends Actor { /* ... */ }
+
+const player = new Player({ name: "Player" });
+const goblin = new Enemy({ name: "Goblin" });
+
+logActorState(player); // works
+logActorState(goblin); // works
+</code></pre>
+
+<div class="callout callout--warning">
+  <span class="callout__icon">⚠</span>
+  <div class="callout__body">
+    <div class="callout__title">Constraint vs. parameter type</div>
+    <p>
+      <code>function foo&lt;T extends Actor&gt;(a: T)</code> is <em>not</em> the same as <code>function foo(a: Actor)</code>. The
+      generic version preserves the specific subtype at the call site, so the return type can also be <code>T</code> (the subclass),
+      not just <code>Actor</code> (the base). Use the generic form when the caller needs the specific type back.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 4: GENERIC RETURN TYPES
+     ═══════════════════════════════════════════════ -->
+<h2>Preserving Types Through Return Values</h2>
+
+<p>
+  One of the most common reasons to reach for a generic is to make the return type reflect the input type. A typed component getter is
+  a classic example: you pass a component class, you want back an instance of exactly that class, not a generic
+  <code>Component</code> base.
+</p>
+
+<pre><code class="language-typescript">
+import { Actor, Component } from "excalibur";
+
+// A typed getter: pass a component constructor, receive an instance of that component
+function getComponent&lt;T extends Component&gt;(
+  actor: Actor,
+  ComponentClass: new () =&gt; T
+): T | undefined {
+  return actor.get(ComponentClass);
+}
+
+class HealthComponent extends Component {
+  hp = 100;
+}
+
+const player = new Actor();
+const health = getComponent(player, HealthComponent);
+// health is HealthComponent | undefined — not Component | undefined
+// So health?.hp is valid without a cast
+</code></pre>
+
+<div class="callout callout--remember">
+  <span class="callout__icon">📌</span>
+  <div class="callout__body">
+    <div class="callout__title">Constructors as type arguments</div>
+    <p>
+      <code>new () =&gt; T</code> is the type of a class constructor that produces a <code>T</code>. Passing a class itself (not an
+      instance) as an argument lets TypeScript tie the return type to whichever specific class you passed. This is a key pattern for
+      factories and registries.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 5: GENERIC ARROW FUNCTIONS
+     ═══════════════════════════════════════════════ -->
+<h2>Generic Arrow Functions</h2>
+
+<p>Arrow functions can also be generic. The type parameter goes before the parameter list, just before the opening parenthesis.</p>
+
+<pre><code class="language-typescript">
+// Generic arrow function
+const identity = &lt;T,&gt;(value: T): T =&gt; value;
+//                 ^
+//                 Note the trailing comma — required in .tsx files to distinguish
+//                 from a JSX element. Safe to include in plain .ts files too.
+
+// Works identically to the function keyword version
+const n = identity(42);        // T = number
+const s = identity("hello");   // T = string
+</code></pre>
+
+<pre><code class="language-typescript">
+// A typed entity factory as an arrow function
+const createActor = &lt;T extends Actor,&gt;(
+  ActorClass: new (config?: unknown) =&gt; T,
+  config?: unknown
+): T =&gt; new ActorClass(config);
+
+class Coin extends Actor { value = 10; }
+const coin = createActor(Coin); // coin is Coin, not Actor
+console.log(coin.value);        // 10 — no cast needed
+</code></pre>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 6: WHEN NOT TO USE GENERICS
+     ═══════════════════════════════════════════════ -->
+<h2>When Not to Use Generics</h2>
+
+<p>
+  Generics add power but also complexity. Reach for them only when there is a real relationship between the types of two or more values
+  (usually input and output, or two inputs).
+</p>
+
+<pre><code class="language-typescript">
+// Unnecessary generic — T is used only once, not connected to anything else
+function logValue&lt;T&gt;(value: T): void {
+  console.log(value);
+}
+
+// Better — unknown or a union is fine when there is no type to preserve
+function logValue(value: unknown): void {
+  console.log(value);
+}
+</code></pre>
+
+<p>
+  A quick test: if removing <code>&lt;T&gt;</code> and replacing it with <code>unknown</code> (or a union) loses no information for the
+  caller, you probably do not need a generic.
+</p>
+
+<div class="callout callout--tip">
+  <span class="callout__icon">💡</span>
+  <div class="callout__body">
+    <div class="callout__title">Generics vs. overloads</div>
+    <p>
+      Use overloads when the <em>shape</em> of the function changes based on argument types (different parameter counts or
+      fundamentally different return structures). Use generics when the function logic is identical across types and you just want the
+      type to flow through.
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     EXCALIBUR PLAYGROUND
+     ═══════════════════════════════════════════════ -->
+<h2>Try It: Excalibur Playground</h2>
+
+<p>
+  The playground below sets up a small scene with several actor subclasses. A generic factory function creates typed actors and a
+  generic getter retrieves their components. Edit the type parameters and constraints, then observe how TypeScript catches mismatches
+  before the game even runs.
+</p>
+
+<excalibur-playground label="Try It: Generic Functions in ExcaliburJS" height="520">
+  <script type="text/plain" slot="code">
+    import { Actor, Engine, Component, Color, vec } from "excalibur";
+
+    // --- Components ---
+    class HealthComponent extends Component {
+      type = "health" as const;
+      constructor(public hp: number) { super(); }
+    }
+
+    class SpeedComponent extends Component {
+      type = "speed" as const;
+      constructor(public units: number) { super(); }
+    }
+
+    // --- Generic component getter ---
+    function getComponent&lt;T extends Component&gt;(
+      actor: Actor,
+      ComponentClass: new (...args: any[]) =&gt; T
+    ): T | undefined {
+      return actor.get(ComponentClass);
+    }
+
+    // --- Generic actor factory ---
+    function spawnActor&lt;T extends Actor&gt;(
+      ActorClass: new (config: any) =&gt; T,
+      config: { name: string; pos: { x: number; y: number } }
+    ): T {
+      return new ActorClass({ name: config.name, x: config.pos.x, y: config.pos.y });
+    }
+
+    // --- Subclasses ---
+    class Player extends Actor {
+      onInitialize() {
+        this.addComponent(new HealthComponent(100));
+        this.addComponent(new SpeedComponent(200));
+        this.graphics.use(new ex.Rectangle({ width: 32, height: 32, color: Color.Blue }));
+      }
+    }
+
+    class Coin extends Actor {
+      value = 10;
+      onInitialize() {
+        this.graphics.use(new ex.Rectangle({ width: 16, height: 16, color: Color.Yellow }));
+      }
+    }
+
+    // --- Scene setup ---
+    const game = new Engine({ width: 600, height: 400 });
+
+    game.start().then(() =&gt; {
+      const player = spawnActor(Player, { name: "Player", pos: { x: 80, y: 200 } });
+      const coin   = spawnActor(Coin,   { name: "Coin",   pos: { x: 300, y: 200 } });
+
+      const health = getComponent(player, HealthComponent); // HealthComponent | undefined
+      const speed  = getComponent(player, SpeedComponent);  // SpeedComponent | undefined
+
+      console.log(`HP: ${health?.hp ?? "none"}`);      // HP: 100
+      console.log(`Speed: ${speed?.units ?? "none"}`); // Speed: 200
+      console.log(`Coin value: ${coin.value}`);         // 10 — typed as Coin, not Actor
+
+      game.add(player);
+      game.add(coin);
+    });
+  </script>
+</excalibur-playground>
+
+<!-- ═══════════════════════════════════════════════
+     EXERCISE
+     ═══════════════════════════════════════════════ -->
+<section class="exercise">
+  <div class="exercise__label">✏️ Exercise</div>
+  <div class="exercise__title">Build a Typed Entity Registry</div>
+  <div class="exercise__body">
+    <p>
+      Write a generic <code>Registry&lt;T&gt;</code> class that stores named items and retrieves them with their exact type intact.
+      Then use it to manage actors in a small game scene.
+    </p>
+    <ol>
+      <li>
+        Create a generic class <code>Registry&lt;T&gt;</code> with a private <code>Map&lt;string, T&gt;</code>
+        field.
+      </li>
+      <li>Add a <code>register(name: string, item: T): void</code> method that stores the item.</li>
+      <li>Add a <code>get(name: string): T | undefined</code> method that retrieves it.</li>
+      <li>
+        Instantiate <code>new Registry&lt;Actor&gt;()</code>, register two actor instances, and retrieve one by name without any type
+        assertion.
+      </li>
+      <li>
+        Verify that <code>registry.get("player")</code> returns <code>Actor | undefined</code> and that you can access
+        <code>.pos</code> directly after a nullish check.
+      </li>
+    </ol>
+    <p>
+      <strong>Expected result:</strong> TypeScript accepts the retrieved value as <code>Actor</code>
+      with no cast, and hovering the variable in your editor shows the correct type.
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     CHALLENGE
+     ═══════════════════════════════════════════════ -->
+<section class="challenge">
+  <div class="challenge__label">🏆 Challenge</div>
+  <div class="challenge__title">Constrained Multi-Parameter Factory</div>
+  <p>
+    Write a generic function <code>spawnGroup&lt;T extends Actor&gt;</code> that accepts a constructor, a count, and a callback of type
+    <code>(actor: T, index: number) =&gt; void</code>. The function should create <code>count</code> instances, call the callback on
+    each one (to let the caller position or configure the actor), and return <code>T[]</code>.
+  </p>
+  <p>
+    Use it to spawn five coins in a horizontal row, spacing them 60 pixels apart. Confirm that the returned array is typed as
+    <code>Coin[]</code> and that you can access <code>coin.value</code> in a <code>forEach</code> loop without any cast.
+  </p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SUMMARY
+     ═══════════════════════════════════════════════ -->
 <section class="lesson-summary">
   <div class="lesson-summary__title">Summary</div>
   <ul class="lesson-summary__points">
-    <li>Full content is on the way</li>
+    <li>
+      <span
+        >Generic functions use a type parameter like <code>&lt;T&gt;</code> to express a relationship between argument types and return
+        types without hardcoding any specific type.</span
+      >
+    </li>
+    <li>
+      <span
+        >TypeScript infers the type argument from the value you pass at the call site, so you rarely need to write
+        <code>fn&lt;number&gt;(...)</code> explicitly.</span
+      >
+    </li>
+    <li>
+      <span
+        >The <code>extends</code> keyword constrains a type parameter to a minimum shape, letting you safely access properties inside
+        the function body while still accepting any compatible subtype.</span
+      >
+    </li>
+    <li>
+      <span
+        >Passing a class constructor as a <code>new () =&gt; T</code> argument lets you write typed factory and registry helpers that
+        return the specific subclass, not just the base type.</span
+      >
+    </li>
+    <li>
+      <span
+        >Generic arrow functions follow the same rules as function declarations; add a trailing comma after the type parameter when
+        writing them in <code>.tsx</code> files.</span
+      >
+    </li>
+    <li>
+      <span
+        >Reach for a generic when the type needs to flow through; use <code>unknown</code> or a union when it does not. Unnecessary
+        generics add noise without benefit.</span
+      >
+    </li>
   </ul>
 </section>
